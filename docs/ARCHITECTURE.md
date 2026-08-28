@@ -268,6 +268,6 @@ Every failure mode is handled explicitly. The system never silently swallows err
 | M8 | ✅ Done | Application tracker + conversational assistant |
 | M9 | ✅ Done | Telegram notifications |
 | M10 | ✅ Done | Scheduling + continuous research |
-| M11 | 🔄 Next | Observability + LLM cost dashboard |
-| M12 | ⏳ | Deployment (Render/Fly.io) + CI/CD |
+| M11 | ✅ Done | Observability + LLM cost dashboard |
+| M12 | 🔄 Next | Deployment (Render backend + Vercel frontend) |
 | M13 | ⏳ | MCP server (Claude Desktop integration) |
