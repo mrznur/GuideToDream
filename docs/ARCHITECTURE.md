@@ -269,5 +269,5 @@ Every failure mode is handled explicitly. The system never silently swallows err
 | M9 | ✅ Done | Telegram notifications |
 | M10 | ✅ Done | Scheduling + continuous research |
 | M11 | ✅ Done | Observability + LLM cost dashboard |
-| M12 | 🔄 Next | Deployment (Render backend + Vercel frontend) |
-| M13 | ⏳ | MCP server (Claude Desktop integration) |
+| M12 | ✅ Done | Deployment — backend live at https://guidetodream.onrender.com |
+| M13 | 🔄 Next | Next.js frontend (Vercel) |

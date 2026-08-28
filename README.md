@@ -91,8 +91,6 @@ python scripts/seed_profile.py
 python -m uvicorn app.main:app --reload
 ```
 
-API docs available at: http://localhost:8000/docs
-
 ---
 
 ## Development
@@ -144,15 +142,21 @@ GuideToDream/
 
 ---
 
+## Deployment
+
+- **Backend API**: https://guidetodream.onrender.com
+  - FastAPI + APScheduler on Render free tier
+  - Auto-deploys on push to `main`
+  - Health check: https://guidetodream.onrender.com/health
+  - API docs: https://guidetodream.onrender.com/docs
+
+- **Frontend**: Coming soon (Next.js on Vercel)
+
+- **Database**: Supabase PostgreSQL (free tier)
+
 ## Architecture
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full system design including:
-- Layer responsibilities and rules
-- Complete data flow diagram (trigger → notification)
-- Configuration flow
-- LLM usage policy
-- Error handling philosophy
-- Milestone progress tracker
 
 See [docs/FILE_MAP.md](docs/FILE_MAP.md) for:
 - Every file's purpose
