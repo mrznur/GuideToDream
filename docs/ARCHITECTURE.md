@@ -266,8 +266,8 @@ Every failure mode is handled explicitly. The system never silently swallows err
 | M6 | ✅ Done | Scoring engine (weighted dimensions + explanation) |
 | M7 | ✅ Done | Full research pipeline (orchestrated end-to-end) |
 | M8 | ✅ Done | Application tracker + conversational assistant |
-| M9 | 🔄 Next | Telegram notifications |
-| M10 | ⏳ | Scheduling + continuous research |
+| M9 | ✅ Done | Telegram notifications |
+| M10 | 🔄 Next | Scheduling + continuous research |
 | M11 | ⏳ | Observability + LLM cost dashboard |
 | M12 | ⏳ | Deployment (Render/Fly.io) + CI/CD |
 | M13 | ⏳ | MCP server (Claude Desktop integration) |
