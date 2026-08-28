@@ -93,6 +93,7 @@ def create_app() -> FastAPI:
     from app.api.assistant import router as assistant_router
     from app.api.notifications import router as notifications_router
     from app.api.schedule import router as schedule_router
+    from app.api.admin import router as admin_router
 
     app.include_router(research_router, prefix="/api/v1")
     app.include_router(opportunities_router, prefix="/api/v1")
@@ -100,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(assistant_router, prefix="/api/v1")
     app.include_router(notifications_router, prefix="/api/v1")
     app.include_router(schedule_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/api/v1")
 
     return app
 
