@@ -1,0 +1,54 @@
+# render.yaml
+# Render deployment configuration.
+# Commit this file — Render reads it to know how to build and run your app.
+# Docs: https://render.com/docs/render-yaml-spec
+
+services:
+  - type: web
+    name: guidetodream-api
+    runtime: python
+    region: singapore          # closest to Bangladesh
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+
+    # Environment variables — set these in the Render dashboard, NOT here.
+    # This section just documents which vars are needed.
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATABASE_URL
+        sync: false            # set manually in Render dashboard
+      - key: DATABASE_URL_SYNC
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LLM_FAST_MODEL
+        value: gemini/gemini-3.6-flash
+      - key: LLM_SMART_MODEL
+        value: gemini/gemini-3.6-flash
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: PLAYWRIGHT_ENABLED
+        value: "false"
+      - key: SCHEDULER_ENABLED
+        value: "true"
+      - key: RESEARCH_SCHEDULE_HOUR
+        value: "8"
+      - key: RESEARCH_SCHEDULE_MINUTE
+        value: "0"
+      - key: DEADLINE_CHECK_HOUR
+        value: "14"
+      - key: DEADLINE_CHECK_MINUTE
+        value: "0"
+      - key: DAILY_SUMMARY_HOUR
+        value: "21"
+      - key: DAILY_SUMMARY_MINUTE
+        value: "0"
