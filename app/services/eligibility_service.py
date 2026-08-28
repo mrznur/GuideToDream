@@ -123,6 +123,9 @@ class UserProfileSnapshot:
     avoided_countries: list[str]     # []
     graduation_year: int | None      # 2026
     graduation_month: int | None     # 5
+    fields_of_interest: list[str] = field(default_factory=list)   # ["AI", "ML", ...]
+    skills: dict = field(default_factory=dict)                     # {"python": "advanced", ...}
+    notable_projects: list = field(default_factory=list)           # [{"name": "...", ...}]
 
     @property
     def cgpa_normalized(self) -> float:
