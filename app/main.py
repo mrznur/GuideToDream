@@ -90,6 +90,8 @@ def create_app() -> FastAPI:
     # TODO (Milestone 2+): register routers
     # app.include_router(profile_router, prefix="/api/v1")
     # app.include_router(opportunities_router, prefix="/api/v1")
+    from app.api.research import router as research_router
+    app.include_router(research_router, prefix="/api/v1")
 
     return app
 
