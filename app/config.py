@@ -82,11 +82,11 @@ class Settings(BaseSettings):
         description="Google Gemini API key from aistudio.google.com",
     )
     llm_fast_model: str = Field(
-        default="gemini/gemini-1.5-flash",
+        default="gemini/gemini-3.6-flash",
         description="Cheap/fast model for routine tasks",
     )
     llm_smart_model: str = Field(
-        default="gemini/gemini-1.5-pro",
+        default="gemini/gemini-3.6-flash",
         description="Smarter model for complex reasoning",
     )
     llm_max_retries: int = Field(default=3)
