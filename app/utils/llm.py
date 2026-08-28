@@ -3,18 +3,17 @@ app/utils/llm.py
 ─────────────────
 LLM wrapper using the official Google Gemini SDK (google-genai).
 
-We use the google-genai SDK directly rather than LiteLLM because:
-- LiteLLM has timeout/streaming issues with Gemini 3.6+ on some networks
-- The google-genai SDK is the official supported path
-- Direct SDK gives us better control over timeouts and error handling
+Uses streaming mode to avoid timeout issues on long responses.
+Streaming keeps the connection alive while the model generates text,
+rather than waiting for the entire response in one blocking call.
 
 MODEL ROUTING:
 "fast"  → gemini-3.6-flash (free tier: 15 req/min)
-"smart" → gemini-3.6-flash (same for now — upgrade when pro available)
+"smart" → gemini-3.6-flash (same for now)
 
 TEMPERATURE:
-0.0-0.2 = deterministic (use for extraction/classification)
-0.7-0.9 = creative (use for writing explanations)
+0.0-0.2 = deterministic (extraction, classification)
+0.7-0.9 = creative (explanation writing, query generation)
 """
 
 import time
@@ -33,7 +32,6 @@ class LLMError(Exception):
         self.retryable = retryable
 
 
-# Map our logical model names to actual Gemini model IDs
 _MODEL_MAP = {
     "fast": "gemini-3.6-flash",
     "smart": "gemini-3.6-flash",
@@ -67,17 +65,13 @@ def call_llm(
         from google import genai
         from google.genai import types
     except ImportError as e:
-        raise LLMError(
-            "google-genai not installed. Run: pip install google-genai"
-        ) from e
+        raise LLMError("google-genai not installed. Run: pip install google-genai") from e
 
     from app.config import get_settings
     settings = get_settings()
 
     model_id = _MODEL_MAP.get(model, "gemini-3.6-flash")
-    # Also check if config overrides the model
     if model == "fast" and "gemini" in settings.llm_fast_model:
-        # Extract model name from "gemini/gemini-3.6-flash" format
         model_id = settings.llm_fast_model.split("/")[-1]
     elif model == "smart" and "gemini" in settings.llm_smart_model:
         model_id = settings.llm_smart_model.split("/")[-1]
@@ -95,67 +89,51 @@ def call_llm(
     try:
         client = genai.Client(api_key=settings.gemini_api_key)
 
-        response = client.models.generate_content(
+        # Streaming mode: receive response in chunks rather than one blocking call.
+        # This prevents connection timeouts on long JSON responses.
+        chunks = []
+        for chunk in client.models.generate_content_stream(
             model=model_id,
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=temperature,
                 max_output_tokens=max_tokens,
-                # No system instruction here — we include everything in the prompt
             ),
-        )
+        ):
+            if chunk.text:
+                chunks.append(chunk.text)
+
+        text = "".join(chunks)
 
     except Exception as e:
         error_msg = str(e).lower()
-        elapsed = round((time.time() - start_time) * 1000, 1)
 
         if "rate limit" in error_msg or "429" in error_msg or "quota" in error_msg:
             logger.warning("llm_rate_limited", task=task_name, model=model_id)
-            raise LLMError(
-                f"Rate limit hit: {e}", model=model_id, retryable=True
-            ) from e
+            raise LLMError(f"Rate limit hit: {e}", model=model_id, retryable=True) from e
 
         if "api key" in error_msg or "401" in error_msg or "api_key" in error_msg:
             raise LLMError(
                 f"Invalid API key. Check GEMINI_API_KEY in .env: {e}",
-                model=model_id, retryable=False
+                model=model_id, retryable=False,
             ) from e
 
         if "not found" in error_msg or "404" in error_msg:
             raise LLMError(
                 f"Model {model_id} not available: {e}",
-                model=model_id, retryable=False
+                model=model_id, retryable=False,
             ) from e
 
         logger.error("llm_call_failed", task=task_name, model=model_id, error=str(e))
         raise LLMError(f"LLM call failed: {e}", model=model_id, retryable=False) from e
 
     elapsed_ms = round((time.time() - start_time) * 1000, 1)
-
-    # Extract text
-    try:
-        text = response.text or ""
-    except Exception as e:
-        raise LLMError(f"Could not read LLM response: {e}", model=model_id) from e
-
-    # Log token usage
-    try:
-        usage = response.usage_metadata
-        logger.info(
-            "llm_call_completed",
-            task=task_name,
-            model=model_id,
-            elapsed_ms=elapsed_ms,
-            prompt_tokens=usage.prompt_token_count,
-            completion_tokens=usage.candidates_token_count,
-            total_tokens=usage.total_token_count,
-        )
-    except Exception:
-        logger.info(
-            "llm_call_completed",
-            task=task_name,
-            model=model_id,
-            elapsed_ms=elapsed_ms,
-        )
+    logger.info(
+        "llm_call_completed",
+        task=task_name,
+        model=model_id,
+        elapsed_ms=elapsed_ms,
+        response_chars=len(text),
+    )
 
     return text
