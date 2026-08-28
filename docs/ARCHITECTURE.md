@@ -262,8 +262,8 @@ Every failure mode is handled explicitly. The system never silently swallows err
 | M2 | ✅ Done | Repo setup, config, database, profile model |
 | M3 | ✅ Done | Web research tools (search, fetch, PDF) |
 | M4 | ✅ Done | Information extraction agent (Gemini LLM) |
-| M5 | 🔄 Next | Eligibility engine (hard rules + soft interpretation) |
-| M6 | ⏳ | Scoring engine (weighted dimensions + explanation) |
+| M5 | ✅ Done | Eligibility engine (hard rules + soft interpretation) |
+| M6 | 🔄 Next | Scoring engine (weighted dimensions + explanation) |
 | M7 | ⏳ | Full research pipeline (orchestrated end-to-end) |
 | M8 | ⏳ | Application tracker + conversational assistant |
 | M9 | ⏳ | Telegram notifications |

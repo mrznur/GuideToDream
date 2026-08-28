@@ -319,7 +319,7 @@ python scripts/seed_profile.py
 
 | File | Will do |
 |------|---------|
-| `app/services/eligibility_service.py` | Hard/soft eligibility rules against user profile |
+| `app/services/eligibility_service.py` | Hard/soft eligibility rules against user profile | ✅ Done (M5) |
 | `app/services/scoring_service.py` | Weighted 8-dimension score with explanation |
 | `app/services/opportunity_service.py` | DB persistence for opportunities, deduplication |
 | `app/services/research_orchestrator.py` | Coordinates a full research cycle (M7) |
@@ -332,3 +332,4 @@ python scripts/seed_profile.py
 | `app/api/applications.py` | REST API for application tracker |
 | `app/scheduler/jobs.py` | APScheduler jobs for automated research cycles (M10) |
 | `app/mcp/server.py` | MCP server definition for Claude Desktop (M13) |
+| `app/utils/date_parser.py` | Safe date parsing for deadline strings | ✅ Done (M5) |
