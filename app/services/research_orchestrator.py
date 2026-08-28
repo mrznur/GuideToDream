@@ -269,6 +269,14 @@ async def run_research_cycle(
 
                         if is_new_opp:
                             opportunities_found += 1
+                            # Evaluate and send notification
+                            from app.services.notification_service import evaluate_and_notify
+                            await evaluate_and_notify(
+                                db=db,
+                                user_id=user.id,
+                                opportunity=opportunity,
+                                is_new=True,
+                            )
                         else:
                             opportunities_updated += 1
 
