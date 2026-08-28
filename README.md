@@ -146,7 +146,24 @@ GuideToDream/
 
 ## Architecture
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full system design.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full system design including:
+- Layer responsibilities and rules
+- Complete data flow diagram (trigger → notification)
+- Configuration flow
+- LLM usage policy
+- Error handling philosophy
+- Milestone progress tracker
+
+See [docs/FILE_MAP.md](docs/FILE_MAP.md) for:
+- Every file's purpose
+- What each file imports and what imports it
+- What triggers each operation
+- Planned files for future milestones
+
+See [docs/DATA_MODEL.md](docs/DATA_MODEL.md) for:
+- Full database schema with all columns
+- Entity relationships
+- Why each design decision was made
 
 ---
 
