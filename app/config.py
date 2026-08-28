@@ -117,16 +117,22 @@ class Settings(BaseSettings):
     playwright_enabled: bool = Field(default=False)
     request_timeout_seconds: int = Field(default=30)
     request_max_retries: int = Field(default=3)
-    # Respectful crawling — delay between requests to the same domain
     crawl_delay_seconds: float = Field(default=2.0)
 
     # -------------------------------------------------------------------------
     # Research / Scheduling
     # -------------------------------------------------------------------------
-    # Minimum score (0-100) for a new opportunity to trigger a notification
     notification_score_threshold: float = Field(default=70.0)
-    # Days before deadline to start sending reminders
     deadline_reminder_days: int = Field(default=30)
+
+    # Scheduling
+    scheduler_enabled: bool = Field(default=True)
+    research_schedule_hour: int = Field(default=8)
+    research_schedule_minute: int = Field(default=0)
+    deadline_check_hour: int = Field(default=14)
+    deadline_check_minute: int = Field(default=0)
+    daily_summary_hour: int = Field(default=21)
+    daily_summary_minute: int = Field(default=0)
 
 
 @lru_cache

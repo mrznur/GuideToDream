@@ -28,17 +28,7 @@ logger = structlog.get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Lifespan context manager — runs code on startup and shutdown.
-
-    Everything before 'yield' runs when the app starts.
-    Everything after 'yield' runs when the app shuts down.
-
-    This replaces the old @app.on_event("startup") pattern.
-    """
     settings = get_settings()
-
-    # Set up logging first so all subsequent startup messages are captured
     setup_logging(settings.log_level)
 
     logger.info(
@@ -47,15 +37,22 @@ async def lifespan(app: FastAPI):
         log_level=settings.log_level,
     )
 
-    # TODO (Milestone 3): initialize web research tools
-    # TODO (Milestone 6): initialize LLM client
-    # TODO (Milestone 10): start scheduler
+    # Start scheduler
+    from app.scheduler.jobs import setup_scheduler
+    scheduler = setup_scheduler()
+    if settings.scheduler_enabled:
+        scheduler.start()
+        logger.info("scheduler_started", jobs=len(scheduler.get_jobs()))
 
     logger.info("guidetodream_ready")
 
-    yield  # App is running — handle requests here
+    yield  # App is running
 
     # Shutdown
+    if settings.scheduler_enabled and scheduler.running:
+        scheduler.shutdown(wait=False)
+        logger.info("scheduler_stopped")
+
     logger.info("guidetodream_shutting_down")
 
 
@@ -95,12 +92,14 @@ def create_app() -> FastAPI:
     from app.api.applications import router as applications_router
     from app.api.assistant import router as assistant_router
     from app.api.notifications import router as notifications_router
+    from app.api.schedule import router as schedule_router
 
     app.include_router(research_router, prefix="/api/v1")
     app.include_router(opportunities_router, prefix="/api/v1")
     app.include_router(applications_router, prefix="/api/v1")
     app.include_router(assistant_router, prefix="/api/v1")
     app.include_router(notifications_router, prefix="/api/v1")
+    app.include_router(schedule_router, prefix="/api/v1")
 
     return app
 
