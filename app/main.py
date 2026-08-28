@@ -91,7 +91,14 @@ def create_app() -> FastAPI:
     # app.include_router(profile_router, prefix="/api/v1")
     # app.include_router(opportunities_router, prefix="/api/v1")
     from app.api.research import router as research_router
+    from app.api.opportunities import router as opportunities_router
+    from app.api.applications import router as applications_router
+    from app.api.assistant import router as assistant_router
+
     app.include_router(research_router, prefix="/api/v1")
+    app.include_router(opportunities_router, prefix="/api/v1")
+    app.include_router(applications_router, prefix="/api/v1")
+    app.include_router(assistant_router, prefix="/api/v1")
 
     return app
 
