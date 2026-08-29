@@ -1,3 +1,4 @@
+import ApplicationActions from "@/components/ui/application-actions"
 import { api } from "@/lib/api"
 import Navbar from "@/components/layout/navbar"
 import {
@@ -186,6 +187,9 @@ export default async function OpportunityDetailPage({ params }: Props) {
             </div>
           </div>
         )}
+
+        {/* Application tracker */}
+        <ApplicationActions opportunityId={opp.id} currentStatus={opp.application_status} />
 
         {/* Programme details */}
         <div className="bg-[#0d1117] border border-white/5 rounded-xl p-6">
