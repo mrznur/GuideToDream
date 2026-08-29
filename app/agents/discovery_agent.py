@@ -31,28 +31,48 @@ from app.utils.llm import LLMError, call_llm
 logger = structlog.get_logger(__name__)
 
 # Always include these baseline queries regardless of LLM output
-# These target official sources — university pages, not blogs
+# Spread across ALL preferred countries — not just Germany
 _BASELINE_QUERIES = [
-    # Direct German university CS/AI programmes
-    "site:tu.berlin MSc Computer Science admission requirements English",
-    "site:tum.de master computer science artificial intelligence admission",
-    "site:kit.edu master informatics computer science English taught",
-    "site:rwth-aachen.de master computer science English admission",
-    "site:uni-freiburg.de master computer science English admission requirements",
+    # Czech Republic (free tuition for international students)
+    "site:cvut.cz master computer science artificial intelligence English admission",
+    "site:muni.cz master computer science English taught admission requirements",
+    "MSc Computer Science Czech Republic free tuition English 2025 international admission",
+
     # Netherlands
+    "site:uva.nl master artificial intelligence computer science admission requirements",
     "site:tue.nl master computer science artificial intelligence admission",
-    "site:uva.nl master artificial intelligence admission requirements",
-    "site:vu.nl master computer science English admission",
-    # Czech Republic / Poland / Hungary (low tuition)
-    "site:cvut.cz master computer science English admission requirements",
-    "site:agh.edu.pl master computer science English admission free tuition",
-    # DAAD scholarships
-    "site:daad.de scholarship computer science Bangladesh international students 2025",
-    # Broader searches
-    "MSc Artificial Intelligence Germany free tuition 2025 admission requirements international",
-    "MSc Computer Science Netherlands 2025 English taught admission CGPA requirements",
-    "fully funded masters computer science Europe 2025 international students Bangladesh eligible",
-    "MSc Machine Learning NLP Europe 2025 low tuition English admission requirements",
+    "MSc Artificial Intelligence Netherlands 2025 English taught tuition international",
+
+    # Poland (very low tuition)
+    "site:pw.edu.pl master computer science English admission 2025",
+    "MSc Computer Science Poland 2025 English taught tuition fee international students",
+
+    # Hungary (Stipendium Hungaricum scholarship)
+    "Stipendium Hungaricum 2025 computer science artificial intelligence Bangladesh",
+    "MSc Computer Science Hungary Budapest English 2025 tuition scholarship",
+
+    # Finland (free tuition + scholarships)
+    "site:aalto.fi master computer science artificial intelligence admission 2025",
+    "MSc Computer Science Finland 2025 English taught free tuition international",
+
+    # Austria
+    "site:tuwien.ac.at master computer science informatics English admission",
+    "MSc Computer Science Austria Vienna 2025 English taught tuition",
+
+    # Norway (free tuition)
+    "site:uio.no master informatics computer science English admission 2025",
+    "MSc Computer Science Norway 2025 free tuition English international students",
+
+    # Sweden
+    "site:kth.se master computer science machine learning admission 2025",
+    "MSc Artificial Intelligence Sweden 2025 English taught tuition scholarship",
+
+    # Denmark
+    "site:dtu.dk master computer science artificial intelligence English admission 2025",
+
+    # Scholarships specifically for Bangladesh
+    "DAAD scholarship Bangladesh computer science 2025 2026",
+    "Erasmus Mundus scholarship computer science AI 2025 open Bangladesh",
 ]
 
 _QUERY_GENERATION_PROMPT = """You are helping a student find European Master's programmes.

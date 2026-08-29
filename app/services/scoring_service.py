@@ -356,50 +356,97 @@ def _score_country(
     profile: UserProfileSnapshot,
 ) -> DimensionScore:
     """Country preference score."""
-    # Try to get country from university name or programme data
-    # (full university data comes from the DB — here we work with extracted data)
+
+    # Map known university name keywords to countries
+    # This compensates for pages that don't state the country explicitly
+    _UNI_COUNTRY_MAP = {
+        # Germany
+        "berlin": "Germany", "münchen": "Germany", "munich": "Germany",
+        "karlsruhe": "Germany", "aachen": "Germany", "freiburg": "Germany",
+        "hamburg": "Germany", "heidelberg": "Germany", "tu berlin": "Germany",
+        "tum": "Germany", "kit": "Germany", "rwth": "Germany", "lmu": "Germany",
+        "technische universität": "Germany", "universität": "Germany",
+        "hochschule": "Germany", "ingolstadt": "Germany",
+        # Netherlands
+        "amsterdam": "Netherlands", "delft": "Netherlands", "eindhoven": "Netherlands",
+        "leiden": "Netherlands", "utrecht": "Netherlands", "uva": "Netherlands",
+        "tue": "Netherlands", "vu": "Netherlands", "groningen": "Netherlands",
+        "tilburg": "Netherlands", "maastricht": "Netherlands",
+        # Czech Republic
+        "prague": "Czech Republic", "brno": "Czech Republic", "cvut": "Czech Republic",
+        "muni": "Czech Republic", "czech": "Czech Republic",
+        # Poland
+        "warsaw": "Poland", "krakow": "Poland", "wroclaw": "Poland",
+        "poznan": "Poland", "polish": "Poland",
+        # Hungary
+        "budapest": "Hungary", "hungarian": "Hungary", "bme": "Hungary",
+        # Finland
+        "helsinki": "Finland", "aalto": "Finland", "tampere": "Finland",
+        "finnish": "Finland",
+        # Austria
+        "vienna": "Austria", "wien": "Austria", "graz": "Austria",
+        "tuwien": "Austria", "austrian": "Austria",
+        # Norway
+        "oslo": "Norway", "bergen": "Norway", "trondheim": "Norway",
+        "ntnu": "Norway", "norwegian": "Norway",
+        # Sweden
+        "stockholm": "Sweden", "kth": "Sweden", "gothenburg": "Sweden",
+        "chalmers": "Sweden", "swedish": "Sweden", "lund": "Sweden",
+        # Denmark
+        "copenhagen": "Denmark", "dtu": "Denmark", "danish": "Denmark",
+        "aarhus": "Denmark",
+    }
+
     university = (programme.university_name or "").lower()
-    programme_name = (programme.programme_name or "").lower()
-    combined = university + " " + programme_name
+    programme_name_lower = (programme.programme_name or "").lower()
+    combined = university + " " + programme_name_lower
 
     preferred = [c.lower() for c in profile.preferred_countries]
     avoided = [c.lower() for c in profile.avoided_countries]
 
-    # Check avoided countries first
-    for country in avoided:
-        if country in combined:
+    # Detect country from combined text
+    detected_country = None
+    for keyword, country in _UNI_COUNTRY_MAP.items():
+        if keyword in combined:
+            detected_country = country
+            break
+
+    # Also check if the country is directly mentioned
+    for country in profile.preferred_countries + profile.avoided_countries:
+        if country.lower() in combined:
+            detected_country = country
+            break
+
+    if detected_country:
+        country_lower = detected_country.lower()
+        if country_lower in [a.lower() for a in profile.avoided_countries]:
             return DimensionScore(
-                name="country_preference",
-                score=0.0,
+                name="country_preference", score=0.0,
                 weight=DIMENSION_WEIGHTS["country_preference"],
                 weighted_score=0.0,
-                reason=f"Programme appears to be in {country.title()} which you've marked as avoided",
+                reason=f"{detected_country} is in your avoided countries list",
             )
-
-    # Check preferred countries
-    for country in preferred:
-        if country in combined:
-            score = 1.0
-            reason = f"{country.title()} is in your preferred country list"
-            weight = DIMENSION_WEIGHTS["country_preference"]
+        if country_lower in preferred:
             return DimensionScore(
-                name="country_preference",
-                score=score,
-                weight=weight,
-                weighted_score=round(score * weight, 4),
-                reason=reason,
+                name="country_preference", score=1.0,
+                weight=DIMENSION_WEIGHTS["country_preference"],
+                weighted_score=round(1.0 * DIMENSION_WEIGHTS["country_preference"], 4),
+                reason=f"{detected_country} is in your preferred countries list",
             )
+        # Detected but not preferred/avoided — neutral
+        return DimensionScore(
+            name="country_preference", score=0.5,
+            weight=DIMENSION_WEIGHTS["country_preference"],
+            weighted_score=round(0.5 * DIMENSION_WEIGHTS["country_preference"], 4),
+            reason=f"{detected_country} — not in your preferred list but open to it",
+        )
 
-    # Country not determinable from text
-    score = 0.5
-    reason = "Country not determinable from extracted data — assumed neutral"
-    weight = DIMENSION_WEIGHTS["country_preference"]
+    # Country not determinable
     return DimensionScore(
-        name="country_preference",
-        score=score,
-        weight=weight,
-        weighted_score=round(score * weight, 4),
-        reason=reason,
+        name="country_preference", score=0.5,
+        weight=DIMENSION_WEIGHTS["country_preference"],
+        weighted_score=round(0.5 * DIMENSION_WEIGHTS["country_preference"], 4),
+        reason="Country not determinable from extracted data — assumed neutral",
     )
 
 
