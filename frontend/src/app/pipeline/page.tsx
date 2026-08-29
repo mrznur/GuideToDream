@@ -6,14 +6,14 @@ import { api, type PipelineSummary } from "@/lib/api"
 import { KanbanSquare } from "lucide-react"
 
 const STAGES = [
-  { key: "discovered", label: "Discovered", color: "border-zinc-600" },
-  { key: "shortlisted", label: "Shortlisted", color: "border-blue-500/50" },
-  { key: "preparing", label: "Preparing", color: "border-purple-500/50" },
-  { key: "applied", label: "Applied", color: "border-yellow-500/50" },
-  { key: "interview", label: "Interview", color: "border-orange-500/50" },
-  { key: "accepted", label: "Accepted", color: "border-emerald-500/50" },
-  { key: "rejected", label: "Rejected", color: "border-red-500/50" },
-  { key: "withdrawn", label: "Withdrawn", color: "border-zinc-700" },
+  { key: "discovered",  label: "Discovered",  color: "#475569", glow: "rgba(71,85,105,0.3)" },
+  { key: "shortlisted", label: "Shortlisted", color: "#63b3ed", glow: "rgba(99,179,237,0.3)" },
+  { key: "preparing",   label: "Preparing",   color: "#818cf8", glow: "rgba(129,140,248,0.3)" },
+  { key: "applied",     label: "Applied",     color: "#fbbf24", glow: "rgba(251,191,36,0.3)" },
+  { key: "interview",   label: "Interview",   color: "#f97316", glow: "rgba(249,115,22,0.3)" },
+  { key: "accepted",    label: "Accepted",    color: "#34d399", glow: "rgba(52,211,153,0.3)" },
+  { key: "rejected",    label: "Rejected",    color: "#f87171", glow: "rgba(248,113,113,0.2)" },
+  { key: "withdrawn",   label: "Withdrawn",   color: "#334155", glow: "rgba(51,65,85,0.2)" },
 ]
 
 export default function PipelinePage() {
@@ -21,95 +21,78 @@ export default function PipelinePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.getPipeline()
-      .then(setPipeline)
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    api.getPipeline().then(setPipeline).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
   return (
     <>
       <Navbar />
-      <main className="pt-14 max-w-7xl mx-auto px-4 sm:px-6 py-10">
+      <main className="pt-14 max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-6">
-          <h1 className="text-white text-3xl font-bold flex items-center gap-3">
-            <KanbanSquare className="w-7 h-7 text-blue-400" />
+          <h1 className="text-2xl font-bold mb-1"
+            style={{ background: "linear-gradient(135deg, #f2f4f8, #93c5fd)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             Application Pipeline
           </h1>
-          <p className="text-zinc-500 mt-1">
-            Track your applications through each stage
-            {pipeline && (
-              <span className="ml-2 text-zinc-600">
-                · {pipeline.active} active, {pipeline.total} total
-              </span>
-            )}
+          <p className="text-slate-500 text-sm">
+            {pipeline ? `${pipeline.active} active · ${pipeline.total} total` : "Track your applications through each stage"}
           </p>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="bg-[#0d1117] border border-white/5 rounded-xl p-4 animate-pulse h-32" />
+              <div key={i} className="rounded-xl h-28 animate-pulse"
+                style={{ background: "rgba(10,14,26,0.8)", border: "1px solid rgba(255,255,255,0.04)" }} />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {STAGES.map(({ key, label, color }) => {
-              const stage = pipeline?.pipeline[key]
-              const count = stage?.count ?? 0
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {STAGES.map(({ key, label, color, glow }) => {
+              const count = pipeline?.pipeline[key]?.count ?? 0
               return (
-                <div
-                  key={key}
-                  className={`bg-[#0d1117] border-t-2 ${color} border-x border-b border-white/5 rounded-xl p-4`}
-                >
+                <div key={key} className="rounded-xl p-4 transition-all duration-200"
+                  style={{
+                    background: "rgba(10,14,26,0.8)",
+                    border: `1px solid ${count > 0 ? glow : "rgba(255,255,255,0.05)"}`,
+                    boxShadow: count > 0 ? `0 0 20px ${glow}` : "none",
+                  }}>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-zinc-300 text-sm font-medium">{label}</span>
-                    <span className="text-white font-bold text-lg">{count}</span>
-                  </div>
-                  {count === 0 ? (
-                    <p className="text-zinc-700 text-xs">No applications</p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      <p className="text-zinc-500 text-xs">{count} application{count > 1 ? "s" : ""}</p>
-                      <a
-                        href="/opportunities"
-                        className="text-xs text-blue-500 hover:text-blue-400 transition-colors"
-                      >
-                        View opportunities →
-                      </a>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full" style={{ background: color }} />
+                      <span className="text-xs font-medium" style={{ color: count > 0 ? color : "#475569" }}>{label}</span>
                     </div>
-                  )}
+                    <span className="text-2xl font-bold tabular-nums" style={{ color: count > 0 ? color : "#1e293b" }}>
+                      {count}
+                    </span>
+                  </div>
+                  {count === 0
+                    ? <p className="text-xs" style={{ color: "#1e293b" }}>Empty</p>
+                    : <p className="text-xs" style={{ color: "#475569" }}>
+                        {count} application{count > 1 ? "s" : ""}
+                      </p>
+                  }
                 </div>
               )
             })}
           </div>
         )}
 
-        <div className="mt-8 bg-[#0d1117] border border-white/5 rounded-xl p-5">
-          <h2 className="text-white font-semibold mb-3">How to update status</h2>
-          <p className="text-zinc-500 text-sm">
-            Use the API endpoint to transition an application:
+        {/* How-to */}
+        <div className="mt-8 rounded-xl p-5"
+          style={{ background: "rgba(10,14,26,0.8)", border: "1px solid rgba(255,255,255,0.06)" }}>
+          <h2 className="text-white font-semibold text-sm mb-3">Moving through the pipeline</h2>
+          <p className="text-slate-500 text-sm mb-3">
+            Open any opportunity and use the tracker buttons to move it through stages.
+            The pipeline enforces valid transitions — you can&apos;t skip steps.
           </p>
-          <pre className="mt-3 bg-[#080b12] rounded-lg p-4 text-xs text-zinc-400 overflow-x-auto">
-{`PATCH /api/v1/applications/{id}/status
-{
-  "new_status": "shortlisted",
-  "notes": "Great programme, worth applying"
-}
-
-Valid transitions:
-  discovered → shortlisted → preparing → applied → interview → accepted/rejected`}
-          </pre>
-          <p className="text-zinc-600 text-xs mt-3">
-            Full API docs at:{" "}
-            <a
-              href="https://guidetodream.onrender.com/docs"
-              target="_blank"
-              className="text-blue-500 hover:text-blue-400"
-            >
-              guidetodream.onrender.com/docs
-            </a>
-          </p>
+          <div className="flex flex-wrap gap-2">
+            {["discovered", "→", "shortlisted", "→", "preparing", "→", "applied", "→", "accepted"].map((s, i) => (
+              <span key={i} className="text-xs"
+                style={{ color: s === "→" ? "#334155" : "#64748b" }}>
+                {s}
+              </span>
+            ))}
+          </div>
         </div>
       </main>
     </>
