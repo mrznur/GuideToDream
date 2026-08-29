@@ -70,18 +70,13 @@ export default function PipelinePage() {
                     <p className="text-zinc-700 text-xs">No applications</p>
                   ) : (
                     <div className="space-y-1.5">
-                      {(stage?.opportunity_ids ?? []).slice(0, 3).map((id) => (
-                        <a
-                          key={id}
-                          href={`/opportunities/${id}`}
-                          className="block text-xs text-zinc-500 hover:text-blue-400 transition-colors truncate"
-                        >
-                          {id.slice(0, 8)}…
-                        </a>
-                      ))}
-                      {count > 3 && (
-                        <p className="text-zinc-700 text-xs">+{count - 3} more</p>
-                      )}
+                      <p className="text-zinc-500 text-xs">{count} application{count > 1 ? "s" : ""}</p>
+                      <a
+                        href="/opportunities"
+                        className="text-xs text-blue-500 hover:text-blue-400 transition-colors"
+                      >
+                        View opportunities →
+                      </a>
                     </div>
                   )}
                 </div>

@@ -25,25 +25,35 @@ export default function ApplicationActions({ opportunityId, currentStatus }: Pro
     setLoading(newStatus)
     setError("")
     try {
-      // Try to create an application first if none exists
-      if (!status) {
-        try {
-          await api.createApplication(opportunityId)
-        } catch {
-          // Already exists — that's fine
-        }
+      // Always try to create an application first (idempotent — 409 = already exists)
+      try {
+        await api.createApplication(opportunityId)
+      } catch {
+        // 409 conflict = already exists, that's fine
       }
-      // Get applications to find the ID
+      // Now fetch all applications and find this one
       const apps = await api.getApplications()
       const app = apps.find((a) => a.opportunity_id === opportunityId)
       if (!app) {
-        setError("Could not find application record")
+        // Last resort: if status is "discovered", we can't transition further yet
+        setError("Application created. Refresh and try again.")
+        setStatus("discovered")
+        return
+      }
+      // If already at target status, nothing to do
+      if (app.status === newStatus) {
+        setStatus(newStatus)
         return
       }
       const updated = await api.transitionStatus(app.id, newStatus)
       setStatus(updated.status)
     } catch (e: any) {
-      setError(e.message || "Failed to update status")
+      const msg = e.message || ""
+      if (msg.includes("Invalid transition")) {
+        setError(`Can't go directly to "${newStatus}" from "${status}". Follow the pipeline order.`)
+      } else {
+        setError(msg || "Failed to update status")
+      }
     } finally {
       setLoading(null)
     }
