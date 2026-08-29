@@ -1,3 +1,5 @@
+"use client"
+
 import Link from "next/link"
 import type { Opportunity } from "@/lib/api"
 import { cn, formatTuition, formatDeadline } from "@/lib/utils"
