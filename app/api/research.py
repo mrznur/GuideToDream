@@ -17,8 +17,8 @@ router = APIRouter(prefix="/research", tags=["research"])
 
 class ResearchRunRequest(BaseModel):
     user_email: str
-    max_queries: int = 5
-    max_urls_per_query: int = 3
+    max_queries: int = 10       # increased from 5
+    max_urls_per_query: int = 4  # increased from 3
     dry_run: bool = False
 
 

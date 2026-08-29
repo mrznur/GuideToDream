@@ -67,8 +67,7 @@ async def research_job():
                 user_email="mahmudunmiraz@gmail.com",
                 max_queries=8,
                 max_urls_per_query=3,
-            )
-        logger.info(
+            )        logger.info(
             "scheduled_research_job_completed",
             status=run.status,
             found=run.opportunities_found,

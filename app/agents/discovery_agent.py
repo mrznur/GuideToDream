@@ -31,18 +31,28 @@ from app.utils.llm import LLMError, call_llm
 logger = structlog.get_logger(__name__)
 
 # Always include these baseline queries regardless of LLM output
-# These are reliable and don't need LLM generation
+# These target official sources — university pages, not blogs
 _BASELINE_QUERIES = [
-    "MSc Computer Science Europe free tuition English taught 2025 2026",
-    "DAAD scholarship Bangladesh Computer Science Germany 2025",
-    "Erasmus Mundus scholarship Computer Science AI 2025 2026",
-    "MSc Artificial Intelligence Germany free tuition English",
-    "MSc Machine Learning Netherlands tuition fees English taught",
-    "fully funded masters computer science Europe international students",
-    "MSc Data Science Czech Republic Poland Hungary free tuition",
-    "MSc Software Engineering Austria Finland Norway free tuition",
-    "Orange Knowledge Programme Bangladesh scholarship 2025",
-    "MSc Computer Science low tuition Europe holistic admission",
+    # Direct German university CS/AI programmes
+    "site:tu.berlin MSc Computer Science admission requirements English",
+    "site:tum.de master computer science artificial intelligence admission",
+    "site:kit.edu master informatics computer science English taught",
+    "site:rwth-aachen.de master computer science English admission",
+    "site:uni-freiburg.de master computer science English admission requirements",
+    # Netherlands
+    "site:tue.nl master computer science artificial intelligence admission",
+    "site:uva.nl master artificial intelligence admission requirements",
+    "site:vu.nl master computer science English admission",
+    # Czech Republic / Poland / Hungary (low tuition)
+    "site:cvut.cz master computer science English admission requirements",
+    "site:agh.edu.pl master computer science English admission free tuition",
+    # DAAD scholarships
+    "site:daad.de scholarship computer science Bangladesh international students 2025",
+    # Broader searches
+    "MSc Artificial Intelligence Germany free tuition 2025 admission requirements international",
+    "MSc Computer Science Netherlands 2025 English taught admission CGPA requirements",
+    "fully funded masters computer science Europe 2025 international students Bangladesh eligible",
+    "MSc Machine Learning NLP Europe 2025 low tuition English admission requirements",
 ]
 
 _QUERY_GENERATION_PROMPT = """You are helping a student find European Master's programmes.
