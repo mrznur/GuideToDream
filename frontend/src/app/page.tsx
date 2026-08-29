@@ -1,10 +1,10 @@
-import MetroHero from "@/components/ui/scroll-locked-video-hero"
+import AnimatedHero from "@/components/ui/animated-hero"
 import LandingContent from "./landing-content"
 
 export default function HomePage() {
   return (
     <>
-      <MetroHero />
+      <AnimatedHero />
       <LandingContent />
     </>
   )
