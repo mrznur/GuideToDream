@@ -1,11 +1,83 @@
 import { api } from "@/lib/api"
-import Navbar from "@/components/layout/navbar"
+import PageShell from "@/components/layout/page-shell"
+import PageHeader from "@/components/ui/page-header"
+import GlassCard from "@/components/ui/glass-card"
 import OpportunityCard from "@/components/ui/opportunity-card"
 import { timeAgo } from "@/lib/utils"
-import { Activity, Database, Bot, Bell, Clock, GraduationCap, Calendar, CheckCircle2, AlertCircle, Zap, ArrowRight } from "lucide-react"
+import {
+  Database, Bot, Bell, Zap, GraduationCap,
+  Calendar, CheckCircle2, AlertCircle, ArrowRight,
+  Clock, TrendingUp, Activity,
+} from "lucide-react"
 import Link from "next/link"
 
 export const dynamic = "force-dynamic"
+
+function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      padding: "5px 10px",
+      borderRadius: "var(--r-sm)",
+      background: ok ? "var(--green-bg)" : "var(--red-bg)",
+      border: `1px solid ${ok ? "var(--green-border)" : "var(--red-border)"}`,
+    }}>
+      <span style={{
+        width: 6, height: 6, borderRadius: "50%",
+        background: ok ? "var(--green)" : "var(--red)",
+        display: "block",
+        boxShadow: ok ? "0 0 0 2px rgba(30,122,82,0.2)" : undefined,
+      }} />
+      <span style={{ fontSize: "0.72rem", fontWeight: 600, color: ok ? "var(--green)" : "var(--red)" }}>
+        {label}
+      </span>
+    </div>
+  )
+}
+
+function StatCard({ label, value, color, sub, icon: Icon }: {
+  label: string; value: string | number; color: string; sub?: string; icon: React.ElementType
+}) {
+  return (
+    <GlassCard style={{ padding: "18px 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: "var(--r-md)",
+          background: color + "18",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <Icon style={{ width: 17, height: 17, color }} />
+        </div>
+      </div>
+      <div style={{ fontSize: "1.9rem", fontWeight: 800, letterSpacing: "-0.04em", color: "var(--navy)", lineHeight: 1, marginBottom: 4 }}>
+        {value}
+      </div>
+      <div style={{ fontSize: "0.78rem", color: "var(--gray-500)" }}>{label}</div>
+      {sub && <div style={{ fontSize: "0.68rem", color: "var(--gray-400)", marginTop: 2 }}>{sub}</div>}
+    </GlassCard>
+  )
+}
+
+function PanelHeader({ icon: Icon, title, color = "var(--navy)" }: {
+  icon: React.ElementType; title: string; color?: string
+}) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      padding: "12px 16px",
+      borderBottom: "1px solid var(--border)",
+      background: "var(--gray-50)",
+      borderRadius: "var(--r-lg) var(--r-lg) 0 0",
+    }}>
+      <Icon style={{ width: 14, height: 14, color }} />
+      <span style={{ fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--gray-600)" }}>
+        {title}
+      </span>
+    </div>
+  )
+}
 
 export default async function DashboardPage() {
   const [dash, top, deadlines] = await Promise.all([
@@ -14,177 +86,175 @@ export default async function DashboardPage() {
     api.getUpcomingDeadlines(30).catch(() => []),
   ])
 
-  const stats = dash?.opportunities
+  const stats  = dash?.opportunities
   const health = dash?.health
+  const costs  = dash?.costs
 
   return (
-    <>
-      <Navbar />
-      <main className="pt-14 max-w-7xl mx-auto px-4 sm:px-6 py-8">
-
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold mb-1"
-            style={{ background: "linear-gradient(135deg, #f2f4f8, #93c5fd)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Dashboard
-          </h1>
-          <p className="text-slate-500 text-sm">
-            {dash ? `Updated ${timeAgo(dash.generated_at)}` : "Your European Masters Intelligence Agent"}
-          </p>
-        </div>
-
-        {/* Status row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          {[
-            { icon: Database, label: "Database", ok: health?.database === "connected" },
-            { icon: Bot, label: "AI Model", ok: !!health?.llm_configured },
-            { icon: Bell, label: "Telegram", ok: !!health?.telegram_enabled },
-            { icon: Zap, label: "Scheduler", ok: !!health?.scheduler_running },
-          ].map(({ icon: Icon, label, ok }) => (
-            <div key={label} className="rounded-xl p-3 flex items-center gap-3 transition-all duration-200"
-              style={{ background: "rgba(10,14,26,0.8)", border: `1px solid ${ok ? "rgba(52,211,153,0.2)" : "rgba(248,113,113,0.2)"}` }}>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ background: ok ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)" }}>
-                <Icon className="w-3.5 h-3.5" style={{ color: ok ? "#34d399" : "#f87171" }} />
-              </div>
-              <div>
-                <p className="text-white text-xs font-medium">{label}</p>
-                <p className="text-xs" style={{ color: ok ? "#34d399" : "#f87171" }}>{ok ? "Online" : "Offline"}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Stats row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-          {[
-            { label: "Total Discovered", value: stats?.total ?? 0, color: "#63b3ed" },
-            { label: "Free Tuition", value: stats?.free_tuition_count ?? 0, color: "#34d399" },
-            { label: "Deadlines Soon", value: deadlines.length, color: "#fbbf24" },
-            { label: "Scheduler Jobs", value: health?.scheduler_jobs?.length ?? 0, color: "#818cf8" },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="rounded-xl p-4 transition-all duration-200"
-              style={{ background: "rgba(10,14,26,0.8)", border: "1px solid rgba(255,255,255,0.06)" }}>
-              <p className="text-3xl font-bold tabular-nums mb-1" style={{ color }}>{value}</p>
-              <p className="text-slate-500 text-xs">{label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Scheduler */}
-        {health?.scheduler_jobs && health.scheduler_jobs.length > 0 && (
-          <div className="rounded-xl p-5 mb-6"
-            style={{ background: "rgba(10,14,26,0.8)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <h2 className="text-white font-semibold text-sm mb-4 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-400" />
-              Automated Schedule
-            </h2>
-            <div className="grid sm:grid-cols-3 gap-3">
-              {health.scheduler_jobs.map((job) => (
-                <div key={job.id} className="rounded-lg p-3"
-                  style={{ background: "rgba(5,7,13,0.6)", border: "1px solid rgba(255,255,255,0.04)" }}>
-                  <p className="text-slate-300 text-xs font-medium mb-1">{job.name}</p>
-                  <p className="text-slate-600 text-xs">
-                    {job.next_run ? new Date(job.next_run).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
-                  </p>
-                </div>
-              ))}
-            </div>
+    <PageShell>
+      <PageHeader
+        eyebrow="Overview"
+        title="Your Path to Europe"
+        subtitle={dash
+          ? `Updated ${timeAgo(dash.generated_at)} · ${stats?.total ?? 0} opportunities in your database`
+          : "European Master's tracking dashboard"}
+        action={
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {[
+              { label: "Database", ok: health?.database === "connected" },
+              { label: "Scheduler", ok: !!health?.scheduler_running },
+            ].map(({ label, ok }) => (
+              <StatusBadge key={label} label={label} ok={ok} />
+            ))}
           </div>
-        )}
+        }
+      />
 
-        {/* Top opportunities */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white font-semibold text-sm flex items-center gap-2">
-              <GraduationCap className="w-4 h-4 text-blue-400" />
-              Top Opportunities
-            </h2>
-            <Link href="/opportunities"
-              className="text-xs text-slate-500 hover:text-blue-400 flex items-center gap-1 transition-colors">
-              View all <ArrowRight className="w-3 h-3" />
+      {/* Stat row */}
+      <div className="fade-up-1 stats-grid" style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+        gap: 14,
+        marginBottom: 28,
+      }}>
+        <StatCard icon={GraduationCap} label="Discovered"  value={stats?.total ?? 0}                color="#1d5ca6" sub="total programmes" />
+        <StatCard icon={CheckCircle2}  label="Free Tuition" value={stats?.free_tuition_count ?? 0}   color="#1e7a52" sub="no fees" />
+        <StatCard icon={Calendar}      label="Deadlines"    value={deadlines.length}                   color="#b45309" sub="in 30 days" />
+        <StatCard icon={Activity}      label="LLM Spend"    value={costs ? `$${costs.total_llm_cost_usd.toFixed(3)}` : "—"} color="#5b21b6" sub="total cost" />
+      </div>
+
+      {/* Main two-column */}
+      <div className="flex-col-mobile" style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20, alignItems: "start" }}>
+
+        {/* Left: top matches */}
+        <div className="fade-up-2">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h2 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--navy)", margin: 0 }}>Top Matches</h2>
+            <Link href="/opportunities" className="link-muted">
+              View all <ArrowRight style={{ width: 12, height: 12 }} />
             </Link>
           </div>
+
           {top.length === 0 ? (
-            <div className="rounded-xl p-10 text-center"
-              style={{ background: "rgba(10,14,26,0.8)", border: "1px dashed rgba(255,255,255,0.08)" }}>
-              <GraduationCap className="w-8 h-8 text-slate-700 mx-auto mb-3" />
-              <p className="text-slate-500 text-sm font-medium">No opportunities yet</p>
-              <p className="text-slate-700 text-xs mt-1">Go to Research and trigger a cycle</p>
-              <Link href="/research"
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-                style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1)" }}>
-                Start Research
-              </Link>
-            </div>
+            <GlassCard style={{ padding: "48px 24px", textAlign: "center" }}>
+              <GraduationCap style={{ width: 40, height: 40, color: "var(--gray-300)", margin: "0 auto 14px" }} />
+              <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--gray-700)" }}>No opportunities yet</p>
+              <p style={{ margin: "0 0 20px", fontSize: "0.85rem", color: "var(--gray-500)" }}>
+                Run a research cycle to start discovering programmes
+              </p>
+              <Link href="/research" className="btn-primary">Start Research</Link>
+            </GlassCard>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid-cards" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
               {top.map(opp => <OpportunityCard key={opp.id} opportunity={opp} />)}
             </div>
           )}
         </div>
 
-        {/* Upcoming deadlines */}
-        {deadlines.length > 0 && (
-          <div className="rounded-xl p-5"
-            style={{ background: "rgba(10,14,26,0.8)", border: "1px solid rgba(251,191,36,0.15)" }}>
-            <h2 className="font-semibold text-sm mb-4 flex items-center gap-2"
-              style={{ color: "#fbbf24" }}>
-              <Calendar className="w-4 h-4" />
-              Deadlines in next 30 days
-            </h2>
-            <div className="space-y-2">
-              {deadlines.map(opp => {
-                const days = opp.days_until_deadline
-                const urgent = (days ?? 99) <= 7
-                return (
-                  <Link href={`/opportunities/${opp.id}`} key={opp.id}
-                    className="flex items-center justify-between py-2 px-3 rounded-lg transition-colors hover:bg-white/3">
-                    <div className="min-w-0">
-                      <p className="text-white text-sm truncate">{opp.programme?.name}</p>
-                      <p className="text-slate-500 text-xs">{opp.university?.name}</p>
-                    </div>
-                    <span className="text-xs font-medium ml-4 shrink-0"
-                      style={{ color: urgent ? "#f87171" : "#fbbf24" }}>
-                      {days}d left
-                    </span>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        )}
+        {/* Right sidebar */}
+        <div className="fade-up-3" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {/* Recent runs */}
-        {dash?.recent_runs && dash.recent_runs.length > 0 && (
-          <div className="rounded-xl p-5 mt-6"
-            style={{ background: "rgba(10,14,26,0.8)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <h2 className="text-white font-semibold text-sm mb-4">Recent Research Runs</h2>
-            <div className="space-y-2">
-              {dash.recent_runs.slice(0, 4).map(run => (
-                <div key={run.id} className="flex items-center justify-between py-2 px-3 rounded-lg"
-                  style={{ background: "rgba(5,7,13,0.5)" }}>
-                  <div className="flex items-center gap-2 min-w-0">
-                    {run.status === "completed"
-                      ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      : <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
-                    <span className="text-slate-400 text-xs truncate">
-                      {new Date(run.started_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-3">
-                    <span className="text-slate-600 text-xs">{run.pages_fetched}p</span>
-                    <span className="text-slate-600 text-xs">{run.opportunities_found} found</span>
-                    <span className="text-xs capitalize" style={{ color: run.status === "completed" ? "#34d399" : "#fbbf24" }}>
-                      {run.status}
-                    </span>
-                  </div>
+          {/* Deadlines */}
+          {deadlines.length > 0 && (
+            <GlassCard noPadding>
+              <PanelHeader icon={Calendar} title="Upcoming Deadlines" color="var(--amber)" />
+              <div>
+                {deadlines.slice(0, 6).map(opp => {
+                  const days = opp.days_until_deadline
+                  const urgent = (days ?? 99) <= 7
+                  return (
+                    <Link key={opp.id} href={`/opportunities/${opp.id}`} className="hover-row" style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "9px 16px", textDecoration: "none", borderBottom: "1px solid var(--border)",
+                    }}>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--navy)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {opp.programme?.name}
+                        </p>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "var(--gray-500)" }}>
+                          {opp.university?.name}
+                        </p>
+                      </div>
+                      <span className={`badge ${urgent ? "badge-red" : "badge-amber"}`} style={{ flexShrink: 0, marginLeft: 8 }}>
+                        {days}d
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </GlassCard>
+          )}
+
+          {/* Scheduler jobs */}
+          {health?.scheduler_jobs && health.scheduler_jobs.length > 0 && (
+            <GlassCard noPadding>
+              <PanelHeader icon={Clock} title="Schedule" color="var(--blue)" />
+              {health.scheduler_jobs.map((job: any) => (
+                <div key={job.id} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "9px 16px", borderBottom: "1px solid var(--border)", gap: 10,
+                }}>
+                  <span style={{ fontSize: "0.8rem", color: "var(--gray-700)", fontWeight: 500 }}>{job.name}</span>
+                  <span style={{ fontSize: "0.7rem", color: "var(--gray-400)", flexShrink: 0 }}>
+                    {job.next_run ? new Date(job.next_run).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                  </span>
                 </div>
               ))}
-            </div>
-          </div>
-        )}
-      </main>
-    </>
+            </GlassCard>
+          )}
+
+          {/* Recent runs */}
+          {dash?.recent_runs && dash.recent_runs.length > 0 && (
+            <GlassCard noPadding>
+              <PanelHeader icon={TrendingUp} title="Recent Runs" color="var(--green)" />
+              {dash.recent_runs.slice(0, 4).map(run => (
+                <div key={run.id} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "9px 16px", borderBottom: "1px solid var(--border)", gap: 10,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    {run.status === "completed"
+                      ? <CheckCircle2 style={{ width: 13, height: 13, color: "var(--green)", flexShrink: 0 }} />
+                      : <AlertCircle  style={{ width: 13, height: 13, color: "var(--amber)", flexShrink: 0 }} />}
+                    <div>
+                      <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--gray-700)", fontWeight: 500 }}>
+                        {new Date(run.started_at).toLocaleDateString([], { month: "short", day: "numeric" })}
+                      </p>
+                      <p style={{ margin: 0, fontSize: "0.68rem", color: "var(--gray-400)" }}>
+                        {run.pages_fetched}p · {run.opportunities_found} found
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`badge ${run.status === "completed" ? "badge-green" : "badge-amber"}`}>
+                    {run.status}
+                  </span>
+                </div>
+              ))}
+            </GlassCard>
+          )}
+
+          {/* Costs */}
+          {costs && costs.runs_completed > 0 && (
+            <GlassCard>
+              <p className="section-label">Usage Summary</p>
+              {[
+                { label: "Runs completed",  value: costs.runs_completed },
+                { label: "Pages fetched",   value: costs.total_pages_fetched.toLocaleString() },
+                { label: "Total LLM cost",  value: `$${costs.total_llm_cost_usd.toFixed(4)}` },
+                { label: "Avg per run",     value: `$${costs.avg_cost_per_run_usd.toFixed(4)}` },
+              ].map(({ label, value }) => (
+                <div key={label} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "6px 0", borderBottom: "1px solid var(--border)",
+                }}>
+                  <span style={{ fontSize: "0.78rem", color: "var(--gray-500)" }}>{label}</span>
+                  <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--navy)" }}>{value}</span>
+                </div>
+              ))}
+            </GlassCard>
+          )}
+        </div>
+      </div>
+    </PageShell>
   )
 }

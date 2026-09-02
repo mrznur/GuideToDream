@@ -70,10 +70,14 @@ _BASELINE_QUERIES = [
     # Denmark
     "site:dtu.dk master computer science artificial intelligence English admission 2025",
 
-    # Scholarships specifically for Bangladesh
-    "DAAD scholarship Bangladesh computer science 2025 2026",
+    # Scholarships specifically for Bangladesh (non-German)
     "Erasmus Mundus scholarship computer science AI 2025 open Bangladesh",
+    "Swedish Institute scholarship computer science Bangladesh 2025",
+    "Stipendium Hungaricum 2025 computer science artificial intelligence Bangladesh",
 ]
+
+# Countries permanently excluded — never generate queries for these
+_EXCLUDED_COUNTRIES = {"germany", "german"}
 
 _QUERY_GENERATION_PROMPT = """You are helping a student find European Master's programmes.
 
@@ -95,6 +99,8 @@ Generate queries that:
 3. Find scholarships specifically for South Asian / Bangladeshi students
 4. Find programmes where the student's AI/LLM background is valued
 5. Mix different angles: by country, by field, by scholarship type
+
+IMPORTANT: Do NOT generate queries for Germany or German universities under any circumstances.
 
 Return ONLY a JSON array of 10 query strings. No explanation, just the array:
 ["query 1", "query 2", ...]"""
@@ -135,7 +141,7 @@ def generate_search_queries(
         english_test=profile.english_test or "IELTS",
         english_score=profile.english_score or 7.0,
         interests=", ".join(profile.fields_of_interest[:5]) if profile.fields_of_interest else "AI, ML, CS",
-        countries=", ".join(profile.preferred_countries[:6]) if profile.preferred_countries else "Germany, Netherlands",
+        countries=", ".join(profile.preferred_countries[:6]) if profile.preferred_countries else "Netherlands, Czech Republic",
         thesis_note=thesis_note,
     )
 
@@ -158,7 +164,13 @@ def generate_search_queries(
             llm_queries = json.loads(raw[start:end])
             # Validate: must be list of strings
             if isinstance(llm_queries, list):
-                valid = [q for q in llm_queries if isinstance(q, str) and len(q) > 10]
+                valid = [
+                    q for q in llm_queries
+                    if isinstance(q, str)
+                    and len(q) > 10
+                    # Hard exclude Germany regardless of what LLM generates
+                    and not any(exc in q.lower() for exc in _EXCLUDED_COUNTRIES)
+                ]
                 queries.extend(valid)
                 logger.info(
                     "query_generation_completed",

@@ -227,6 +227,15 @@ async def run_research_cycle(
                     score=score.total_score,
                 )
 
+                # Skip German universities — excluded by user preference
+                if extracted.university_country and extracted.university_country.strip().lower() == "germany":
+                    logger.info(
+                        "skipping_excluded_country",
+                        country=extracted.university_country,
+                        programme=extracted.programme_name,
+                    )
+                    continue
+
                 # Save to database (unless dry run)
                 if not dry_run:
                     try:

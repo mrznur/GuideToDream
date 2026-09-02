@@ -3,24 +3,22 @@ app/main.py
 ───────────
 FastAPI application entry point.
 
-This file:
-1. Creates the FastAPI app instance
-2. Registers routers (API endpoints)
-3. Sets up startup/shutdown lifecycle events
-4. Configures logging
+Middleware stack (outermost → innermost):
+  CORSMiddleware  → TimeoutMiddleware → RateLimitMiddleware → APIKeyMiddleware → route
 
-When you run: uvicorn app.main:app --reload
-Python imports this file, creates the `app` object, and uvicorn
-starts serving HTTP requests.
+Global exception handler converts unhandled exceptions to clean JSON
+so stack traces never leak to callers in production.
 """
 
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
+from app.middleware import APIKeyMiddleware, RateLimitMiddleware, TimeoutMiddleware
 from app.utils.logging import setup_logging
 
 logger = structlog.get_logger(__name__)
@@ -35,9 +33,10 @@ async def lifespan(app: FastAPI):
         "guidetodream_starting",
         environment=settings.app_env.value,
         log_level=settings.log_level,
+        auth_enabled=bool(settings.api_secret_key),
+        rate_limit_rpm=settings.rate_limit_per_minute,
     )
 
-    # Start scheduler
     from app.scheduler.jobs import setup_scheduler
     scheduler = setup_scheduler()
     if settings.scheduler_enabled:
@@ -45,10 +44,8 @@ async def lifespan(app: FastAPI):
         logger.info("scheduler_started", jobs=len(scheduler.get_jobs()))
 
     logger.info("guidetodream_ready")
+    yield
 
-    yield  # App is running
-
-    # Shutdown
     if settings.scheduler_enabled and scheduler.running:
         scheduler.shutdown(wait=False)
         logger.info("scheduler_stopped")
@@ -61,15 +58,33 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="GuideToDream",
-        description="Personal European Higher-Studies Intelligence Agent",
+        description="Personal European Higher-Studies Agent",
         version="0.1.0",
-        # Disable docs in production (they expose your API structure)
         docs_url="/docs" if not settings.is_production else None,
         redoc_url="/redoc" if not settings.is_production else None,
         lifespan=lifespan,
     )
 
-    # CORS — allow localhost in dev, production frontend URL in prod
+    # ── Global exception handler ─────────────────────────────────────────
+    # Converts any unhandled exception into a clean JSON 500, never leaking
+    # stack traces or internal details to the caller.
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception(
+            "unhandled_exception",
+            path=request.url.path,
+            method=request.method,
+            error=str(exc),
+        )
+        # In dev: include message to help debugging.
+        # In prod: generic message only.
+        detail = str(exc) if settings.is_development else "An internal error occurred."
+        return JSONResponse(
+            status_code=500,
+            content={"detail": detail},
+        )
+
+    # ── CORS ─────────────────────────────────────────────────────────────
     allowed_origins = ["http://localhost:3000", "http://localhost:3001"]
     if settings.frontend_url:
         allowed_origins.append(settings.frontend_url)
@@ -84,14 +99,22 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Health check endpoint — used by deployment platforms to verify the app is running
+    # ── Request timeout (60s hard limit per request) ──────────────────────
+    app.add_middleware(TimeoutMiddleware, timeout_seconds=60.0)
+
+    # ── Rate limiting ─────────────────────────────────────────────────────
+    if settings.rate_limit_per_minute > 0:
+        app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.rate_limit_per_minute)
+
+    # ── API key authentication ────────────────────────────────────────────
+    app.add_middleware(APIKeyMiddleware, api_key=settings.api_secret_key)
+
+    # ── Health check (always public) ──────────────────────────────────────
     @app.get("/health", tags=["system"])
     async def health_check():
         return {"status": "ok", "environment": settings.app_env.value}
 
-    # TODO (Milestone 2+): register routers
-    # app.include_router(profile_router, prefix="/api/v1")
-    # app.include_router(opportunities_router, prefix="/api/v1")
+    # ── Routers ───────────────────────────────────────────────────────────
     from app.api.research import router as research_router
     from app.api.opportunities import router as opportunities_router
     from app.api.applications import router as applications_router
@@ -100,13 +123,13 @@ def create_app() -> FastAPI:
     from app.api.schedule import router as schedule_router
     from app.api.admin import router as admin_router
 
-    app.include_router(research_router, prefix="/api/v1")
+    app.include_router(research_router,      prefix="/api/v1")
     app.include_router(opportunities_router, prefix="/api/v1")
-    app.include_router(applications_router, prefix="/api/v1")
-    app.include_router(assistant_router, prefix="/api/v1")
+    app.include_router(applications_router,  prefix="/api/v1")
+    app.include_router(assistant_router,     prefix="/api/v1")
     app.include_router(notifications_router, prefix="/api/v1")
-    app.include_router(schedule_router, prefix="/api/v1")
-    app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(schedule_router,      prefix="/api/v1")
+    app.include_router(admin_router,         prefix="/api/v1")
 
     return app
 

@@ -115,6 +115,29 @@ class Settings(BaseSettings):
     frontend_url: str = Field(default="", description="Vercel frontend URL for CORS")
 
     # -------------------------------------------------------------------------
+    # Single-user identity
+    # -------------------------------------------------------------------------
+    user_email: str = Field(
+        default="mahmudunmiraz@gmail.com",
+        description="The single owner's email — used to scope all DB queries",
+    )
+
+    # -------------------------------------------------------------------------
+    # Security
+    # -------------------------------------------------------------------------
+    api_secret_key: str = Field(
+        default="",
+        description=(
+            "Secret key that callers must send as X-API-Key header. "
+            "Leave empty to disable auth (dev only). Set in production."
+        ),
+    )
+    rate_limit_per_minute: int = Field(
+        default=60,
+        description="Max requests per IP per minute (0 = disabled)",
+    )
+
+    # -------------------------------------------------------------------------
     # Web Research
     # -------------------------------------------------------------------------    playwright_enabled: bool = Field(default=False)
     request_timeout_seconds: int = Field(default=30)

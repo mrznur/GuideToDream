@@ -1,0 +1,30 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="c">
+      <polygon points="50,12 94,32 50,52 6,32"/>
+      <polygon points="50,52 78,42 78,68 50,78 22,68 22,42"/>
+      <rect x="78" y="32" width="6" height="42" rx="2"/>
+      <circle cx="84" cy="76" r="5"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <polygon points="50,12 28,22 6,32 50,32" fill="#1d6fa8" opacity="0.85"/>
+    <polygon points="50,12 72,22 94,32 50,32" fill="#3a9de0" opacity="0.75"/>
+    <polygon points="28,22 50,12 42,28"       fill="#9ddcff" opacity="0.60"/>
+    <polygon points="6,32 50,32 28,42 6,32"   fill="#5bbcf8" opacity="0.90"/>
+    <polygon points="50,32 94,32 72,42 50,52" fill="#1d6fa8" opacity="0.70"/>
+    <polygon points="50,32 72,42 50,52 28,42" fill="#9ddcff" opacity="0.55"/>
+    <polygon points="22,42 50,52 38,58 22,54" fill="#1d6fa8" opacity="0.88"/>
+    <polygon points="22,54 38,58 22,68"       fill="#5bbcf8" opacity="0.72"/>
+    <polygon points="78,42 50,52 62,58 78,54" fill="#3a9de0" opacity="0.78"/>
+    <polygon points="78,54 62,58 78,68"       fill="#1d6fa8" opacity="0.90"/>
+    <polygon points="50,52 62,58 50,78 38,58" fill="#9ddcff" opacity="0.48"/>
+    <rect x="78" y="32" width="6" height="44" rx="1" fill="#5bbcf8" opacity="0.80"/>
+    <circle cx="84" cy="76" r="5" fill="#3a9de0" opacity="0.85"/>
+    <polygon points="84,71 89,76 84,81 79,76" fill="#9ddcff" opacity="0.55"/>
+  </g>
+  <polygon points="50,12 94,32 50,52 6,32"         fill="none" stroke="#5bbcf8" stroke-width="0.8" opacity="0.55"/>
+  <polygon points="50,52 78,42 78,68 50,78 22,68 22,42" fill="none" stroke="#5bbcf8" stroke-width="0.7" opacity="0.45"/>
+  <line x1="50" y1="12" x2="50" y2="52" stroke="#9ddcff" stroke-width="0.4" opacity="0.35"/>
+  <line x1="6"  y1="32" x2="94" y2="32" stroke="#9ddcff" stroke-width="0.3" opacity="0.28"/>
+</svg>

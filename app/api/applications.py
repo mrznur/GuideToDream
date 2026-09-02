@@ -21,6 +21,7 @@ Endpoints:
 
 from uuid import UUID
 
+from app.config import get_settings
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,7 +35,7 @@ from app.schemas.application import ApplicationCreate, ApplicationOut, Applicati
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 # Hardcoded user email for single-user system
-_USER_EMAIL = "mahmudunmiraz@gmail.com"
+_USER_EMAIL: str = get_settings().user_email
 
 
 async def _get_user_id(db: AsyncSession) -> UUID:

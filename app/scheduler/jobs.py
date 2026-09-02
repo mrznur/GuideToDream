@@ -64,10 +64,11 @@ async def research_job():
         async with AsyncSessionLocal() as db:
             run = await run_research_cycle(
                 db=db,
-                user_email="mahmudunmiraz@gmail.com",
+                user_email=settings.user_email,
                 max_queries=8,
                 max_urls_per_query=3,
-            )        logger.info(
+            )
+        logger.info(
             "scheduled_research_job_completed",
             status=run.status,
             found=run.opportunities_found,
@@ -110,7 +111,7 @@ async def deadline_job():
         async with AsyncSessionLocal() as db:
             # Load user
             user_result = await db.execute(
-                select(User).where(User.email == "mahmudunmiraz@gmail.com")
+                select(User).where(User.email == get_settings().user_email)
             )
             user = user_result.scalar_one_or_none()
             if not user:
@@ -171,7 +172,7 @@ async def summary_job():
 
         async with AsyncSessionLocal() as db:
             user_result = await db.execute(
-                select(User).where(User.email == "mahmudunmiraz@gmail.com")
+                select(User).where(User.email == get_settings().user_email)
             )
             user = user_result.scalar_one_or_none()
             if not user:

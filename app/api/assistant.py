@@ -16,7 +16,7 @@ router = APIRouter(prefix="/assistant", tags=["assistant"])
 
 class QuestionRequest(BaseModel):
     question: str
-    user_email: str = "mahmudunmiraz@gmail.com"
+    user_email: str | None = None
 
 
 class AnswerResponse(BaseModel):

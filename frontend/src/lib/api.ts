@@ -3,40 +3,48 @@
  * ----------
  * Typed API client for the GuideToDream backend.
  * All components import from here — never fetch() directly.
- * Swap the BASE_URL to point at localhost during development.
  */
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "https://guidetodream.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL ?? "https://guidetodream.onrender.com"
 
-async function get<T>(path: string): Promise<T> {
+// API key sent on every request (set NEXT_PUBLIC_API_KEY in .env.local)
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? ""
+
+// Shared auth headers — empty object when no key is configured (dev without auth)
+function authHeaders(): Record<string, string> {
+  return API_KEY ? { "X-API-Key": API_KEY } : {}
+}
+
+async function get<T>(path: string, revalidate = 60): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
-    next: { revalidate: 60 }, // cache for 60s (Next.js ISR)
-  });
-  if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
-  return res.json();
+    next: { revalidate },
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error(`GET ${path} → ${res.status}`)
+  return res.json()
 }
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`POST ${path} → ${res.status}`);
-  return res.json();
+  })
+  if (!res.ok) throw new Error(`POST ${path} → ${res.status}`)
+  return res.json()
 }
 
 async function patch<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`PATCH ${path} → ${res.status}`);
-  return res.json();
+  })
+  if (!res.ok) throw new Error(`PATCH ${path} → ${res.status}`)
+  return res.json()
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────

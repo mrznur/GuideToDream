@@ -3,32 +3,14 @@ app/agents/assistant_agent.py
 ──────────────────────────────
 Conversational assistant that answers questions about your opportunities.
 
-HOW IT WORKS:
-1. User asks a question in plain English
-2. We query the database to get relevant structured data
-3. We pass the question + data to the LLM
-4. The LLM generates a natural language answer based on the actual data
-
-WHY THIS PATTERN (not pure RAG)?
-For this use case, the data is small and structured.
-We don't need embeddings or vector search.
-We can just fetch the relevant records and give them to the LLM directly.
-This is simpler, cheaper, and more accurate for structured data.
-
-This pattern is called "Context stuffing" — pack the relevant data
-into the LLM context, let it reason over it.
-
-QUESTIONS IT CAN ANSWER:
-- "What are my top 10 opportunities?"
-- "Which deadlines are coming within 30 days?"
-- "Show me the cheapest programmes I'm eligible for"
-- "Why did you recommend this programme?"
-- "Which scholarships should I prioritize?"
-- "What applications am I missing documents for?"
-- "Have I applied to [university] yet?"
+PERFORMANCE NOTES:
+- Uses call_llm_async so the FastAPI event loop is never blocked
+- DB queries run concurrently (asyncio.gather)
+- Context capped at top 20 opportunities to keep prompt small and fast
+- Shared genai.Client reused across calls (no per-request connection overhead)
 """
 
-import json
+import asyncio
 
 import structlog
 from sqlalchemy import desc, select
@@ -38,144 +20,130 @@ from sqlalchemy.orm import selectinload
 from app.models.application import Application
 from app.models.opportunity import Opportunity
 from app.models.programme import Programme
-from app.utils.llm import LLMError, call_llm
+from app.utils.llm import LLMError, call_llm_async
 
 logger = structlog.get_logger(__name__)
 
-_ASSISTANT_SYSTEM_PROMPT = """You are a personal higher education advisor assistant.
-You help a student track and evaluate Master's programme opportunities in Europe.
+_SYSTEM_PROMPT = """You are a personal higher-education advisor.
+Help a student track and evaluate European Master's programmes.
 
-Answer the user's question based ONLY on the data provided below.
-Be specific, cite programme names and universities when relevant.
-Be honest about limitations — if data is missing, say so.
-Keep responses concise but complete.
-Format as plain text, not markdown (no **bold** or # headers).
+Answer based ONLY on the data below. Be specific and concise.
+Plain text only — no markdown bold or headers.
 
-USER PROFILE SUMMARY:
-{profile_summary}
+PROFILE: {profile_summary}
 
-OPPORTUNITIES DATA:
+TOP OPPORTUNITIES (up to 20):
 {opportunities_data}
 
-APPLICATION PIPELINE:
-{pipeline_data}
+PIPELINE: {pipeline_data}
 
-User question: {question}
-
+Question: {question}
 Answer:"""
 
 
-async def _get_context_data(db: AsyncSession, user_email: str) -> tuple[str, str, str]:
-    """
-    Load relevant data from the database for the assistant's context.
-    Returns (profile_summary, opportunities_data, pipeline_data)
-    """
+async def _load_profile(db: AsyncSession, user_email: str) -> str:
     from app.models.user import User
     from app.models.profile import Profile, ProfilePreferences
 
-    # Load user + profile
-    user_result = await db.execute(select(User).where(User.email == user_email))
-    user = user_result.scalar_one_or_none()
+    user_row = await db.execute(select(User).where(User.email == user_email))
+    user = user_row.scalar_one_or_none()
     if not user:
-        return "Profile not found", "No opportunities", "No applications"
+        return "Profile not found"
 
-    profile_result = await db.execute(select(Profile).where(Profile.user_id == user.id))
-    profile = profile_result.scalar_one_or_none()
-
-    prefs_result = await db.execute(
-        select(ProfilePreferences).where(ProfilePreferences.user_id == user.id)
+    profile_row, prefs_row = await asyncio.gather(
+        db.execute(select(Profile).where(Profile.user_id == user.id)),
+        db.execute(select(ProfilePreferences).where(ProfilePreferences.user_id == user.id)),
     )
-    prefs = prefs_result.scalar_one_or_none()
+    profile = profile_row.scalar_one_or_none()
+    prefs   = prefs_row.scalar_one_or_none()
 
-    profile_summary = "Unknown profile"
-    if profile:
-        profile_summary = (
-            f"Name: {profile.full_name}, "
-            f"Degree: {profile.degree_level} in {profile.degree_field} ({profile.university}), "
-            f"CGPA: {profile.cgpa}/{profile.cgpa_scale}, "
-            f"English: {profile.english_test} {profile.english_score}, "
-            f"Graduation: {profile.graduation_month}/{profile.graduation_year}"
+    if not profile:
+        return "No profile data"
+
+    summary = (
+        f"{profile.full_name}, {profile.degree_level} in {profile.degree_field} "
+        f"({profile.university}), CGPA {profile.cgpa}/{profile.cgpa_scale}, "
+        f"{profile.english_test} {profile.english_score}, "
+        f"graduating {profile.graduation_month}/{profile.graduation_year}"
+    )
+    if prefs:
+        countries = ", ".join((prefs.preferred_countries or [])[:5])
+        summary += (
+            f" | Countries: {countries}"
+            f" | Max tuition: €{prefs.max_tuition_eur_per_year}/yr"
+            f" | Scholarship required: {prefs.scholarship_required}"
         )
-        if prefs:
-            profile_summary += (
-                f", Target countries: {', '.join(prefs.preferred_countries[:5] or [])}, "
-                f"Max tuition: EUR {prefs.max_tuition_eur_per_year}/year, "
-                f"Scholarship required: {prefs.scholarship_required}"
-            )
+    return summary
 
-    # Load top opportunities (limit to 30 to control context size)
-    opps_query = (
+
+async def _load_opportunities(db: AsyncSession, user_id: str) -> str:
+    result = await db.execute(
         select(Opportunity)
-        .options(
-            selectinload(Opportunity.programme).options(
-                selectinload(Programme.university),
-            )
-        )
-        .where(Opportunity.user_id == user.id)
+        .options(selectinload(Opportunity.programme).options(selectinload(Programme.university)))
+        .where(Opportunity.user_id == user_id)
         .order_by(desc(Opportunity.total_score))
-        .limit(30)
+        .limit(20)  # keep context small — 20 is enough for any question
     )
-    opps_result = await db.execute(opps_query)
-    opps = opps_result.scalars().all()
+    opps = result.scalars().all()
+    if not opps:
+        return "No opportunities discovered yet."
 
-    opp_lines = []
+    lines = []
     for opp in opps:
         prog = opp.programme
-        uni = prog.university if prog else None
-        opp_lines.append(
-            f"- {prog.name if prog else 'Unknown'} @ {uni.name if uni else 'Unknown'} "
-            f"({uni.country if uni else '?'}): "
-            f"score={opp.total_score:.0f}, "
-            f"eligibility={opp.eligibility_status}, "
-            f"tuition=EUR {prog.tuition_eur_per_year if prog and prog.tuition_eur_per_year is not None else '?'}/yr, "
-            f"deadline={opp.application_deadline or 'unknown'}, "
-            f"id={opp.id}"
+        uni  = prog.university if prog else None
+        tuition = f"€{prog.tuition_eur_per_year}/yr" if prog and prog.tuition_eur_per_year is not None else "?"
+        lines.append(
+            f"- {prog.name if prog else '?'} @ {uni.name if uni else '?'} ({uni.country if uni else '?'})"
+            f" | score={opp.total_score:.0f} | {opp.eligibility_status}"
+            f" | {tuition} | deadline={opp.application_deadline or 'unknown'}"
         )
-    opportunities_data = "\n".join(opp_lines) if opp_lines else "No opportunities discovered yet."
+    return "\n".join(lines)
 
-    # Load applications
-    apps_result = await db.execute(
-        select(Application).where(Application.user_id == user.id)
+
+async def _load_pipeline(db: AsyncSession, user_id: str) -> str:
+    result = await db.execute(
+        select(Application.status, Application.opportunity_id)
+        .where(Application.user_id == user_id)
     )
-    apps = apps_result.scalars().all()
+    rows = result.all()
+    if not rows:
+        return "No applications tracked yet."
 
-    pipeline: dict[str, list[str]] = {}
-    for app in apps:
-        pipeline.setdefault(app.status, []).append(str(app.opportunity_id))
-
-    pipeline_lines = [
-        f"- {status}: {len(ids)} application(s)"
-        for status, ids in pipeline.items()
-    ]
-    pipeline_data = "\n".join(pipeline_lines) if pipeline_lines else "No applications tracked yet."
-
-    return profile_summary, opportunities_data, pipeline_data
+    counts: dict[str, int] = {}
+    for status, _ in rows:
+        counts[status] = counts.get(status, 0) + 1
+    return " | ".join(f"{s}: {n}" for s, n in counts.items())
 
 
 async def ask_assistant(
     question: str,
     db: AsyncSession,
-    user_email: str = "mahmudunmiraz@gmail.com",
+    user_email: str | None = None,
 ) -> str:
     """
-    Ask the assistant a question about your opportunities.
-
-    Args:
-        question: Natural language question
-        db: Database session
-        user_email: User's email
-
-    Returns:
-        Natural language answer from the LLM
+    Answer a question about the user's opportunities.
+    All DB queries run concurrently; LLM call is non-blocking.
     """
+    from app.config import get_settings
+    resolved_email = user_email or get_settings().user_email
     logger.info("assistant_question", question=question[:80])
 
-    # Load context data from database
-    profile_summary, opportunities_data, pipeline_data = await _get_context_data(
-        db, user_email
+    # Resolve user_id first (needed for the two data queries)
+    from app.models.user import User
+    user_row = await db.execute(select(User).where(User.email == resolved_email))
+    user = user_row.scalar_one_or_none()
+    if not user:
+        return "Couldn't find your profile. Make sure the backend has your data seeded."
+
+    # Run profile + opportunities + pipeline queries concurrently
+    profile_summary, opportunities_data, pipeline_data = await asyncio.gather(
+        _load_profile(db, resolved_email),
+        _load_opportunities(db, str(user.id)),
+        _load_pipeline(db, str(user.id)),
     )
 
-    prompt = _ASSISTANT_SYSTEM_PROMPT.format(
+    prompt = _SYSTEM_PROMPT.format(
         profile_summary=profile_summary,
         opportunities_data=opportunities_data,
         pipeline_data=pipeline_data,
@@ -183,14 +151,18 @@ async def ask_assistant(
     )
 
     try:
-        answer = call_llm(
+        # async — never blocks the event loop
+        answer = await call_llm_async(
             prompt=prompt,
-            model="smart",
+            model="fast",
             temperature=0.3,
+            max_tokens=1024,   # assistant answers rarely need more than this
             task_name="assistant",
         )
         logger.info("assistant_answered", chars=len(answer))
         return answer
     except LLMError as e:
         logger.error("assistant_llm_failed", error=str(e))
-        return f"I couldn't answer that right now due to an LLM error: {e}"
+        if e.retryable:
+            return "I'm being rate-limited right now. Try again in a minute."
+        return f"Couldn't answer right now: {e}"

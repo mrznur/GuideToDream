@@ -4,6 +4,7 @@ app/api/notifications.py
 REST API for notifications — test sending and view history.
 """
 
+from app.config import get_settings
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import desc, select
@@ -16,7 +17,7 @@ from app.services.notification_service import send_telegram_message
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
-_USER_EMAIL = "mahmudunmiraz@gmail.com"
+_USER_EMAIL: str = get_settings().user_email
 
 
 class TestMessageRequest(BaseModel):
