@@ -17,12 +17,19 @@ function authHeaders(): Record<string, string> {
 }
 
 async function get<T>(path: string, revalidate = 60): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    next: { revalidate },
-    headers: authHeaders(),
-  })
-  if (!res.ok) throw new Error(`GET ${path} → ${res.status}`)
-  return res.json()
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 30_000) // 30s timeout
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      next: { revalidate },
+      headers: authHeaders(),
+      signal: controller.signal,
+    })
+    if (!res.ok) throw new Error(`GET ${path} → ${res.status}`)
+    return res.json()
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 async function post<T>(path: string, body?: unknown): Promise<T> {

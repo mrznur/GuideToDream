@@ -50,10 +50,8 @@ async def _load_profile(db: AsyncSession, user_email: str) -> str:
     if not user:
         return "Profile not found"
 
-    profile_row, prefs_row = await asyncio.gather(
-        db.execute(select(Profile).where(Profile.user_id == user.id)),
-        db.execute(select(ProfilePreferences).where(ProfilePreferences.user_id == user.id)),
-    )
+    profile_row = await db.execute(select(Profile).where(Profile.user_id == user.id))
+    prefs_row   = await db.execute(select(ProfilePreferences).where(ProfilePreferences.user_id == user.id))
     profile = profile_row.scalar_one_or_none()
     prefs   = prefs_row.scalar_one_or_none()
 
@@ -136,12 +134,10 @@ async def ask_assistant(
     if not user:
         return "Couldn't find your profile. Make sure the backend has your data seeded."
 
-    # Run profile + opportunities + pipeline queries concurrently
-    profile_summary, opportunities_data, pipeline_data = await asyncio.gather(
-        _load_profile(db, resolved_email),
-        _load_opportunities(db, str(user.id)),
-        _load_pipeline(db, str(user.id)),
-    )
+    # Run queries sequentially — asyncpg single session cannot handle concurrent queries
+    profile_summary  = await _load_profile(db, resolved_email)
+    opportunities_data = await _load_opportunities(db, str(user.id))
+    pipeline_data    = await _load_pipeline(db, str(user.id))
 
     prompt = _SYSTEM_PROMPT.format(
         profile_summary=profile_summary,

@@ -40,6 +40,7 @@ export default function OpportunitiesPage() {
   const [opps, setOpps]        = useState<Opportunity[]>([])
   const [total, setTotal]      = useState<number | null>(null)
   const [loading, setLoading]  = useState(true)
+  const [error, setError]      = useState<string | null>(null)
   const [elig, setElig]        = useState<EligFilter>("")
   const [sort, setSort]        = useState<SortOption>("score")
   const [minScore, setMinScore]= useState(0)
@@ -48,13 +49,21 @@ export default function OpportunitiesPage() {
 
   const load = useCallback(() => {
     setLoading(true)
+    setError(null)
     api.getOpportunities({
       eligibility: elig || undefined,
       sort_by: sort,
       min_score: minScore > 0 ? minScore : undefined,
     })
       .then(res => { setOpps(res.items); setTotal(res.total) })
-      .catch(() => { setOpps([]); setTotal(0) })
+      .catch(err => {
+        setOpps([])
+        setTotal(0)
+        const msg = err?.name === "AbortError"
+          ? "Request timed out. The server may be starting up — try again in a moment."
+          : "Couldn't reach the server. Check your connection or try again."
+        setError(msg)
+      })
       .finally(() => setLoading(false))
   }, [elig, sort, minScore])
 
@@ -183,7 +192,18 @@ export default function OpportunitiesPage() {
 
       {/* Grid */}
       <div className="fade-up-1">
-        {loading ? <SkeletonGrid /> : opps.length === 0 ? (
+        {loading ? <SkeletonGrid /> : error ? (
+          <GlassCard style={{ padding: "48px 24px", textAlign: "center" }}>
+            <div style={{ fontSize: "2rem", marginBottom: 12 }}>⚠️</div>
+            <p style={{ margin: "0 0 6px", fontWeight: 700, color: "var(--gray-700)" }}>
+              Server unavailable
+            </p>
+            <p style={{ margin: "0 0 20px", fontSize: "0.85rem", color: "var(--gray-500)" }}>
+              {error}
+            </p>
+            <button onClick={load} className="btn-primary">Try again</button>
+          </GlassCard>
+        ) : opps.length === 0 ? (
           <GlassCard style={{ padding: "56px 24px", textAlign: "center" }}>
             <GraduationCap style={{ width: 44, height: 44, color: "var(--gray-300)", margin: "0 auto 16px" }} />
             <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: "1rem", color: "var(--gray-700)" }}>

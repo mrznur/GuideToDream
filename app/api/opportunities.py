@@ -171,11 +171,10 @@ async def list_opportunities(
         .offset((page - 1) * page_size)
     )
 
-    # Run count and data concurrently
-    count_result, data_result = await asyncio.gather(
-        db.execute(count_q),
-        db.execute(data_q),
-    )
+    # Run sequentially — asyncio.gather on a single AsyncSession is unsafe
+    # (asyncpg connections do not support concurrent queries on one session)
+    count_result = await db.execute(count_q)
+    data_result  = await db.execute(data_q)
 
     total = count_result.scalar() or 0
     opps  = data_result.scalars().all()
@@ -270,14 +269,11 @@ async def get_opportunity(
     )
     app_q   = select(Application).where(Application.opportunity_id == opportunity_id)
 
-    opp_res, app_res = await asyncio.gather(
-        db.execute(opp_q),
-        db.execute(app_q),
-    )
-
+    opp_res = await db.execute(opp_q)
     opp = opp_res.scalar_one_or_none()
     if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
 
+    app_res = await db.execute(app_q)
     app = app_res.scalar_one_or_none()
     return _build_opportunity_out(opp, app.status if app else None)

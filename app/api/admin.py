@@ -3,12 +3,10 @@ app/api/admin.py
 ─────────────────
 Admin / observability endpoints.
 
-PERFORMANCE: The dashboard runs all independent DB queries concurrently
-with asyncio.gather — previously they were sequential (6+ round trips).
-Now it's a single logical "wave" of queries.
+NOTE: All DB queries on a single AsyncSession must be sequential —
+asyncpg does not support concurrent queries on the same connection.
 """
 
-import asyncio
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends
@@ -53,42 +51,29 @@ async def _get_runs(db: AsyncSession, limit: int) -> list:
 
 
 async def _opp_stats(db: AsyncSession, user_id: str) -> dict:
-    """Aggregate opportunity stats using DB-level queries, not Python loops."""
-    uid = user_id  # shorthand
+    uid = user_id
 
-    # All counts in one gather
-    (
-        total_r,
-        free_r,
-        deadline_r,
-        elig_r,
-    ) = await asyncio.gather(
-        db.execute(
-            select(func.count(Opportunity.id))
-            .where(Opportunity.user_id == uid)
-        ),
-        db.execute(
-            select(func.count(Opportunity.id))
-            .join(Programme, Programme.id == Opportunity.programme_id)
-            .where(Opportunity.user_id == uid)
-            .where(Programme.tuition_eur_per_year == 0)
-        ),
-        db.execute(
-            select(func.count(Opportunity.id))
-            .where(Opportunity.user_id == uid)
-            .where(Opportunity.application_deadline.isnot(None))
-        ),
-        # Per-eligibility counts
-        db.execute(
-            select(Opportunity.eligibility_status, func.count(Opportunity.id))
-            .where(Opportunity.user_id == uid)
-            .group_by(Opportunity.eligibility_status)
-        ),
+    total_r = await db.execute(
+        select(func.count(Opportunity.id)).where(Opportunity.user_id == uid)
     )
-
+    free_r = await db.execute(
+        select(func.count(Opportunity.id))
+        .join(Programme, Programme.id == Opportunity.programme_id)
+        .where(Opportunity.user_id == uid)
+        .where(Programme.tuition_eur_per_year == 0)
+    )
+    deadline_r = await db.execute(
+        select(func.count(Opportunity.id))
+        .where(Opportunity.user_id == uid)
+        .where(Opportunity.application_deadline.isnot(None))
+    )
+    elig_r = await db.execute(
+        select(Opportunity.eligibility_status, func.count(Opportunity.id))
+        .where(Opportunity.user_id == uid)
+        .group_by(Opportunity.eligibility_status)
+    )
     by_eligibility = {row[0]: row[1] for row in elig_r.all()}
 
-    # Score bands — one query with CASE-style grouping via Python after a lean select
     scores_r = await db.execute(
         select(Opportunity.total_score)
         .where(Opportunity.user_id == uid)
@@ -104,11 +89,11 @@ async def _opp_stats(db: AsyncSession, user_id: str) -> dict:
     }
 
     return {
-        "total":              total_r.scalar() or 0,
-        "free_tuition_count": free_r.scalar() or 0,
+        "total":               total_r.scalar() or 0,
+        "free_tuition_count":  free_r.scalar() or 0,
         "with_deadline_count": deadline_r.scalar() or 0,
-        "by_eligibility":     by_eligibility,
-        "by_score_band":      bands,
+        "by_eligibility":      by_eligibility,
+        "by_score_band":       bands,
     }
 
 
@@ -119,8 +104,7 @@ async def _notif_stats(db: AsyncSession, user_id: str) -> dict:
         .where(Notification.sent_at.isnot(None))
         .group_by(Notification.notification_type)
     )
-    rows = r.all()
-    by_type = {row[0]: row[1] for row in rows}
+    by_type = {row[0]: row[1] for row in r.all()}
     return {"total_sent": sum(by_type.values()), "by_type": by_type}
 
 
@@ -128,25 +112,18 @@ async def _notif_stats(db: AsyncSession, user_id: str) -> dict:
 
 @router.get("/dashboard")
 async def get_dashboard(db: AsyncSession = Depends(get_db)):
-    """
-    Full observability dashboard.
-    All independent queries run concurrently — fast even on cold starts.
-    """
+    """Full observability dashboard — all queries sequential on one session."""
     settings = get_settings()
 
-    # Wave 1: things that don't need user_id
-    db_ok, runs, user_id = await asyncio.gather(
-        _db_health(db),
-        _get_runs(db, limit=10),
-        _get_user_id(db, _USER_EMAIL),
-    )
+    db_ok    = await _db_health(db)
+    runs     = await _get_runs(db, limit=10)
+    user_id  = await _get_user_id(db, _USER_EMAIL)
 
-    # Build health block (synchronous, no DB)
     health = {
-        "database":         "connected" if db_ok else "error",
-        "llm_configured":   bool(settings.gemini_api_key),
+        "database":          "connected" if db_ok else "error",
+        "llm_configured":    bool(settings.gemini_api_key),
         "search_configured": bool(settings.tavily_api_key),
-        "telegram_enabled": settings.telegram_enabled,
+        "telegram_enabled":  settings.telegram_enabled,
         "scheduler_running": scheduler.running,
         "scheduler_jobs": [
             {
@@ -158,11 +135,8 @@ async def get_dashboard(db: AsyncSession = Depends(get_db)):
         ],
     }
 
-    # Build run history (synchronous processing)
     run_history = []
-    total_cost = 0.0
-    total_pages = 0
-    total_found = 0
+    total_cost = total_pages = total_found = 0.0
     for run in runs:
         cost = float(run.llm_cost_usd or 0)
         total_cost  += cost
@@ -172,38 +146,34 @@ async def get_dashboard(db: AsyncSession = Depends(get_db)):
         if run.completed_at and run.started_at:
             duration = round((run.completed_at - run.started_at).total_seconds(), 1)
         run_history.append({
-            "id":                   str(run.id),
-            "started_at":           str(run.started_at),
-            "completed_at":         str(run.completed_at) if run.completed_at else None,
-            "status":               run.status,
-            "queries_generated":    run.queries_generated or 0,
-            "pages_fetched":        run.pages_fetched or 0,
-            "opportunities_found":  run.opportunities_found or 0,
+            "id":                    str(run.id),
+            "started_at":            str(run.started_at),
+            "completed_at":          str(run.completed_at) if run.completed_at else None,
+            "status":                run.status,
+            "queries_generated":     run.queries_generated or 0,
+            "pages_fetched":         run.pages_fetched or 0,
+            "opportunities_found":   run.opportunities_found or 0,
             "opportunities_updated": run.opportunities_updated or 0,
-            "llm_calls":            run.llm_calls or 0,
-            "llm_cost_usd":         cost,
-            "search_calls":         run.search_calls or 0,
-            "errors_count":         len(run.errors or []),
-            "errors":               (run.errors or [])[:3],
-            "duration_seconds":     duration,
+            "llm_calls":             run.llm_calls or 0,
+            "llm_cost_usd":          cost,
+            "search_calls":          run.search_calls or 0,
+            "errors_count":          len(run.errors or []),
+            "errors":                (run.errors or [])[:3],
+            "duration_seconds":      duration,
         })
 
-    # Wave 2: user-scoped stats (only if user found)
-    opp_stats: dict = {"total": 0, "free_tuition_count": 0, "with_deadline_count": 0, "by_eligibility": {}, "by_score_band": {}}
+    opp_stats: dict     = {"total": 0, "free_tuition_count": 0, "with_deadline_count": 0, "by_eligibility": {}, "by_score_band": {}}
     notif_summary: dict = {"total_sent": 0, "by_type": {}}
-
     if user_id:
-        opp_stats, notif_summary = await asyncio.gather(
-            _opp_stats(db, user_id),
-            _notif_stats(db, user_id),
-        )
+        opp_stats     = await _opp_stats(db, user_id)
+        notif_summary = await _notif_stats(db, user_id)
 
     avg_cost = total_cost / len(runs) if runs else 0
     cost_summary = {
         "total_llm_cost_usd":        round(total_cost, 6),
         "avg_cost_per_run_usd":      round(avg_cost, 6),
-        "total_pages_fetched":       total_pages,
-        "total_opportunities_found": total_found,
+        "total_pages_fetched":       int(total_pages),
+        "total_opportunities_found": int(total_found),
         "runs_completed":   sum(1 for r in runs if r.status == "completed"),
         "runs_with_errors": sum(1 for r in runs if r.status in ("partial", "failed")),
     }
@@ -222,27 +192,23 @@ async def get_dashboard(db: AsyncSession = Depends(get_db)):
 # ─── /runs ────────────────────────────────────────────────────────────────
 
 @router.get("/runs")
-async def get_research_runs(
-    limit: int = 20,
-    db: AsyncSession = Depends(get_db),
-):
-    """Research run history with full details."""
+async def get_research_runs(limit: int = 20, db: AsyncSession = Depends(get_db)):
     runs = await _get_runs(db, limit)
     return [
         {
-            "id":                   str(r.id),
-            "started_at":           str(r.started_at),
-            "completed_at":         str(r.completed_at) if r.completed_at else None,
-            "status":               r.status,
-            "queries_generated":    r.queries_generated,
-            "pages_fetched":        r.pages_fetched,
-            "opportunities_found":  r.opportunities_found,
+            "id":                    str(r.id),
+            "started_at":            str(r.started_at),
+            "completed_at":          str(r.completed_at) if r.completed_at else None,
+            "status":                r.status,
+            "queries_generated":     r.queries_generated,
+            "pages_fetched":         r.pages_fetched,
+            "opportunities_found":   r.opportunities_found,
             "opportunities_updated": r.opportunities_updated,
-            "llm_calls":            r.llm_calls,
-            "llm_cost_usd":         float(r.llm_cost_usd or 0),
-            "search_calls":         r.search_calls,
-            "errors":               r.errors or [],
-            "notes":                r.notes,
+            "llm_calls":             r.llm_calls,
+            "llm_cost_usd":          float(r.llm_cost_usd or 0),
+            "search_calls":          r.search_calls,
+            "errors":                r.errors or [],
+            "notes":                 r.notes,
         }
         for r in runs
     ]
@@ -252,7 +218,6 @@ async def get_research_runs(
 
 @router.get("/stats")
 async def get_quick_stats(db: AsyncSession = Depends(get_db)):
-    """Lightweight stats — all queries run concurrently."""
     user_id = await _get_user_id(db, _USER_EMAIL)
     if not user_id:
         return {"error": "User not found"}
@@ -260,30 +225,25 @@ async def get_quick_stats(db: AsyncSession = Depends(get_db)):
     today  = date.today()
     cutoff = today + timedelta(days=30)
 
-    total_r, eligible_r, upcoming_r, last_run_r = await asyncio.gather(
-        db.execute(
-            select(func.count(Opportunity.id))
-            .where(Opportunity.user_id == user_id)
-        ),
-        db.execute(
-            select(func.count(Opportunity.id))
-            .where(Opportunity.user_id == user_id)
-            .where(Opportunity.eligibility_status.in_(["eligible", "probably_eligible"]))
-        ),
-        db.execute(
-            select(func.count(Opportunity.id))
-            .where(Opportunity.user_id == user_id)
-            .where(Opportunity.application_deadline >= today)
-            .where(Opportunity.application_deadline <= cutoff)
-        ),
-        db.execute(
-            select(ResearchRun.started_at, ResearchRun.status)
-            .order_by(desc(ResearchRun.started_at))
-            .limit(1)
-        ),
+    total_r    = await db.execute(select(func.count(Opportunity.id)).where(Opportunity.user_id == user_id))
+    eligible_r = await db.execute(
+        select(func.count(Opportunity.id))
+        .where(Opportunity.user_id == user_id)
+        .where(Opportunity.eligibility_status.in_(["eligible", "probably_eligible"]))
     )
-
+    upcoming_r = await db.execute(
+        select(func.count(Opportunity.id))
+        .where(Opportunity.user_id == user_id)
+        .where(Opportunity.application_deadline >= today)
+        .where(Opportunity.application_deadline <= cutoff)
+    )
+    last_run_r = await db.execute(
+        select(ResearchRun.started_at, ResearchRun.status)
+        .order_by(desc(ResearchRun.started_at))
+        .limit(1)
+    )
     run_row = last_run_r.first()
+
     return {
         "total_opportunities":    total_r.scalar() or 0,
         "eligible_opportunities": eligible_r.scalar() or 0,
