@@ -164,12 +164,14 @@ def generate_search_queries(
             llm_queries = json.loads(raw[start:end])
             # Validate: must be list of strings
             if isinstance(llm_queries, list):
+                # Filter: valid strings, not excluded countries
+                _avoided_set = set(c.lower() for c in (profile.avoided_countries or []))
+                _avoided_set.update(_EXCLUDED_COUNTRIES)  # always exclude Germany
                 valid = [
                     q for q in llm_queries
                     if isinstance(q, str)
                     and len(q) > 10
-                    # Hard exclude Germany regardless of what LLM generates
-                    and not any(exc in q.lower() for exc in _EXCLUDED_COUNTRIES)
+                    and not any(exc in q.lower() for exc in _avoided_set)
                 ]
                 queries.extend(valid)
                 logger.info(

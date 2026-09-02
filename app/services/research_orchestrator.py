@@ -227,24 +227,43 @@ async def run_research_cycle(
                     score=score.total_score,
                 )
 
-                # Skip German universities — excluded by user preference
-                # Check URL and university name since ExtractedProgramme has no country field
-                _uni = (extracted.university_name or "").lower()
+                # Skip excluded countries — check URL domain and university name
+                # Also check against the user's avoided_countries preference list
+                _avoided = set(c.lower() for c in (profile.avoided_countries or []))
+                _uni_lower = (extracted.university_name or "").lower()
+                _url_lower = url.lower()
+
+                # Germany-specific: common .de domains and city names
                 _is_german = (
-                    ".de/" in url.lower()
-                    or url.lower().endswith(".de")
-                    or "germany" in _uni
-                    or " uni " in _uni and any(
-                        city in _uni for city in [
-                            "berlin", "munich", "hamburg", "cologne", "frankfurt",
-                            "stuttgart", "düsseldorf", "dortmund", "dresden",
-                        ]
-                    )
+                    ".de/" in _url_lower
+                    or _url_lower.endswith(".de")
+                    or "germany" in _uni_lower
                 )
-                if _is_german:
+
+                # Generic: check URL for country TLD hints + uni name
+                _country_from_url = None
+                _tld_map = {
+                    ".nl": "netherlands", ".cz": "czech republic",
+                    ".pl": "poland", ".hu": "hungary", ".fi": "finland",
+                    ".at": "austria", ".no": "norway", ".se": "sweden",
+                    ".dk": "denmark", ".be": "belgium", ".fr": "france",
+                    ".ch": "switzerland", ".it": "italy", ".es": "spain",
+                    ".pt": "portugal", ".ie": "ireland", ".ee": "estonia",
+                }
+                for tld, country in _tld_map.items():
+                    if f"{tld}/" in _url_lower or _url_lower.endswith(tld):
+                        _country_from_url = country
+                        break
+
+                _should_skip = (
+                    _is_german
+                    or "germany" in _avoided
+                    or (_country_from_url and _country_from_url in _avoided)
+                )
+
+                if _should_skip:
                     logger.info(
                         "skipping_excluded_country",
-                        country="Germany",
                         programme=extracted.programme_name,
                         url=url[:80],
                     )

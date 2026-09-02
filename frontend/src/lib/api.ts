@@ -247,4 +247,24 @@ export const api = {
   // Research
   triggerResearch: () => post("/api/v1/schedule/trigger/research"),
   getScheduleStatus: () => get("/api/v1/schedule/status"),
+
+  // Preferences
+  getPreferences: () => get<{
+    preferred_countries: string[]
+    avoided_countries: string[]
+    fields_of_interest: string[]
+    scholarship_required: boolean
+    max_tuition_eur_per_year: number | null
+  }>("/api/v1/preferences"),
+  updateCountries: (preferred: string[], avoided: string[]) =>
+    patch<{
+      preferred_countries: string[]
+      avoided_countries: string[]
+      fields_of_interest: string[]
+      scholarship_required: boolean
+      max_tuition_eur_per_year: number | null
+    }>("/api/v1/preferences/countries", {
+      preferred_countries: preferred,
+      avoided_countries: avoided,
+    }),
 };
