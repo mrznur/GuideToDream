@@ -140,9 +140,9 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     # Web Research
     # -------------------------------------------------------------------------    playwright_enabled: bool = Field(default=False)
-    request_timeout_seconds: int = Field(default=30)
-    request_max_retries: int = Field(default=3)
-    crawl_delay_seconds: float = Field(default=2.0)
+    request_timeout_seconds: int = Field(default=20)
+    request_max_retries: int = Field(default=2)
+    crawl_delay_seconds: float = Field(default=0.8)
 
     # -------------------------------------------------------------------------
     # Research / Scheduling

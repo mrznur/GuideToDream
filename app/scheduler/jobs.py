@@ -65,7 +65,7 @@ async def research_job():
             run = await run_research_cycle(
                 db=db,
                 user_email=settings.user_email,
-                max_queries=8,
+                max_queries=6,
                 max_urls_per_query=3,
             )
         logger.info(
