@@ -228,11 +228,25 @@ async def run_research_cycle(
                 )
 
                 # Skip German universities — excluded by user preference
-                if extracted.university_country and extracted.university_country.strip().lower() == "germany":
+                # Check URL and university name since ExtractedProgramme has no country field
+                _uni = (extracted.university_name or "").lower()
+                _is_german = (
+                    ".de/" in url.lower()
+                    or url.lower().endswith(".de")
+                    or "germany" in _uni
+                    or " uni " in _uni and any(
+                        city in _uni for city in [
+                            "berlin", "munich", "hamburg", "cologne", "frankfurt",
+                            "stuttgart", "düsseldorf", "dortmund", "dresden",
+                        ]
+                    )
+                )
+                if _is_german:
                     logger.info(
                         "skipping_excluded_country",
-                        country=extracted.university_country,
+                        country="Germany",
                         programme=extracted.programme_name,
+                        url=url[:80],
                     )
                     continue
 
