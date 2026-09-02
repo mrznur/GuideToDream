@@ -4,7 +4,7 @@ app/main.py
 FastAPI application entry point.
 
 Middleware stack (outermost → innermost):
-  CORSMiddleware  → TimeoutMiddleware → RateLimitMiddleware → APIKeyMiddleware → route
+  CORSMiddleware → TimeoutMiddleware → RateLimitMiddleware → APIKeyMiddleware → route
 
 Global exception handler converts unhandled exceptions to clean JSON
 so stack traces never leak to callers in production.
@@ -65,9 +65,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # ── Global exception handler ─────────────────────────────────────────
-    # Converts any unhandled exception into a clean JSON 500, never leaking
-    # stack traces or internal details to the caller.
+    # ── Global exception handler ──────────────────────────────────────────
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.exception(
@@ -76,16 +74,19 @@ def create_app() -> FastAPI:
             method=request.method,
             error=str(exc),
         )
-        # In dev: include message to help debugging.
-        # In prod: generic message only.
         detail = str(exc) if settings.is_development else "An internal error occurred."
-        return JSONResponse(
-            status_code=500,
-            content={"detail": detail},
-        )
+        return JSONResponse(status_code=500, content={"detail": detail})
 
-    # ── CORS ─────────────────────────────────────────────────────────────
-    allowed_origins = ["http://localhost:3000", "http://localhost:3001"]
+    # ── CORS ──────────────────────────────────────────────────────────────
+    # localhost always allowed so local dev can hit Render directly if needed.
+    # frontend_url (Vercel) always allowed in production.
+    # Wildcard in development mode for convenience.
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+    ]
     if settings.frontend_url:
         allowed_origins.append(settings.frontend_url)
     if settings.is_development:
