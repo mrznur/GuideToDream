@@ -227,21 +227,23 @@ async def run_research_cycle(
                     score=score.total_score,
                 )
 
-                # Skip excluded countries — check URL domain and university name
-                # Also check against the user's avoided_countries preference list
+                # Skip excluded countries — use extracted country field (now available)
+                # Plus URL TLD as a reliable secondary signal
                 _avoided = set(c.lower() for c in (profile.avoided_countries or []))
-                _uni_lower = (extracted.university_name or "").lower()
-                _url_lower = url.lower()
+                _avoided.add("germany")  # always excluded
 
-                # Germany-specific: common .de domains and city names
+                _country_extracted = (extracted.university_country or "").lower().strip()
+                _uni_lower         = (extracted.university_name or "").lower()
+                _url_lower         = url.lower()
+
+                # Detect Germany from multiple signals
                 _is_german = (
-                    ".de/" in _url_lower
+                    _country_extracted == "germany"
+                    or ".de/" in _url_lower
                     or _url_lower.endswith(".de")
-                    or "germany" in _uni_lower
                 )
 
-                # Generic: check URL for country TLD hints + uni name
-                _country_from_url = None
+                # Detect other avoided countries from TLD + extracted country
                 _tld_map = {
                     ".nl": "netherlands", ".cz": "czech republic",
                     ".pl": "poland", ".hu": "hungary", ".fi": "finland",
@@ -250,22 +252,23 @@ async def run_research_cycle(
                     ".ch": "switzerland", ".it": "italy", ".es": "spain",
                     ".pt": "portugal", ".ie": "ireland", ".ee": "estonia",
                 }
-                for tld, country in _tld_map.items():
+                _url_country = None
+                for tld, country_name in _tld_map.items():
                     if f"{tld}/" in _url_lower or _url_lower.endswith(tld):
-                        _country_from_url = country
+                        _url_country = country_name
                         break
 
                 _should_skip = (
                     _is_german
-                    or "germany" in _avoided
-                    or (_country_from_url and _country_from_url in _avoided)
+                    or _country_extracted in _avoided
+                    or (_url_country and _url_country in _avoided)
                 )
 
                 if _should_skip:
                     logger.info(
                         "skipping_excluded_country",
+                        country=_country_extracted or "germany (by url)",
                         programme=extracted.programme_name,
-                        url=url[:80],
                     )
                     continue
 
@@ -288,6 +291,8 @@ async def run_research_cycle(
                         university = await upsert_university(
                             db,
                             name=extracted.university_name or "Unknown University",
+                            country=extracted.university_country,
+                            city=extracted.university_city,
                         )
 
                         # Save programme

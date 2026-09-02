@@ -92,11 +92,11 @@ async def upsert_university(
     db: AsyncSession,
     name: str,
     country: str | None = None,
+    city: str | None = None,
 ) -> University:
-    """Find or create a university record."""
+    """Find or create a university record. Updates country/city if previously unknown."""
     name_normalized = _normalize(name)
 
-    # Try to find by normalized name
     result = await db.execute(
         select(University).where(University.name.ilike(f"%{name_normalized}%"))
     )
@@ -106,9 +106,16 @@ async def upsert_university(
         university = University(
             name=name,
             country=country or "Unknown",
+            city=city,
         )
         db.add(university)
-        logger.info("university_created", name=name)
+        logger.info("university_created", name=name, country=country)
+    else:
+        # Update country/city if we now have better info
+        if country and (not university.country or university.country == "Unknown"):
+            university.country = country
+        if city and not university.city:
+            university.city = city
 
     return university
 

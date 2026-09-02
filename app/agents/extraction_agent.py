@@ -89,6 +89,14 @@ class ExtractedProgramme(BaseModel):
     # Basic info
     programme_name: str | None = None
     university_name: str | None = None
+    university_country: str | None = Field(
+        default=None,
+        description="Country where the university is located, e.g. Netherlands, Finland"
+    )
+    university_city: str | None = Field(
+        default=None,
+        description="City where the university is located, e.g. Amsterdam, Helsinki"
+    )
     degree_type: str | None = Field(
         default=None,
         description="MSc, MA, MEng, MRes, etc."
@@ -191,6 +199,8 @@ REQUIRED JSON STRUCTURE:
 {
   "programme_name": string or null,
   "university_name": string or null,
+  "university_country": string or null,
+  "university_city": string or null,
   "degree_type": string or null,
   "field": string or null,
   "language_of_instruction": string or null,
